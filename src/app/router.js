@@ -2,7 +2,7 @@ import { renderAppLayout } from '../layouts/app-layout.js';
 import { routes } from './routes.js';
 
 function currentPath() {
-  const hash = window.location.hash.slice(1);
+  const hash = window.location.hash.slice(1).split('?')[0];
   return hash.startsWith('/') ? hash : '/';
 }
 
@@ -26,13 +26,24 @@ function renderRoute(outlet) {
   }
 
   const page = route?.render ? route.render() : renderNotFound();
+  page.id = 'main-content';
+  page.tabIndex = -1;
   const isPublicAuthPage = path === '/login' || path === '/register';
   outlet.replaceChildren(isPublicAuthPage ? page : renderAppLayout(page, path));
-  outlet.focus();
+  page.focus();
 }
 
 export function startRouter(outlet) {
   if (!outlet) throw new Error('EcoCrew needs an #app outlet.');
+
+  document.querySelector('[data-skip-to-main]')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    const main = outlet.querySelector('main');
+    if (!main) return;
+
+    main.focus();
+  });
+
   window.addEventListener('hashchange', () => renderRoute(outlet));
   renderRoute(outlet);
 }

@@ -15,6 +15,22 @@ export const demoScan = {
   reason: 'The bottle shape and label match a PET beverage bottle.',
 };
 
+export const dailyTasks = [
+  { id: 'water-plant', title: 'Water a plant', guidance: 'Give one of your plants the care it needs today.' },
+  { id: 'plant-seed', title: 'Plant a seed', guidance: 'Start something new by planting a seed.' },
+  { id: 'plant-tree', title: 'Plant a tree', guidance: 'Help grow a greener future by planting a tree.' },
+  { id: 'recycle-plastic-bottle', title: 'Put a plastic bottle into a recycling bin', guidance: 'Empty and rinse the bottle before placing it in recycling.' },
+  { id: 'recycle-paper-cardboard', title: 'Put paper or cardboard into a recycling bin', guidance: 'Keep it clean and dry before recycling it.' },
+  { id: 'separate-recyclables', title: 'Separate recyclables into different bins', guidance: 'Sort materials so they can be recovered correctly.' },
+  { id: 'reusable-water-bottle', title: 'Carry a reusable water bottle', guidance: 'Choose your reusable bottle instead of a disposable one.' },
+  { id: 'reusable-shopping-bag', title: 'Use a reusable shopping bag', guidance: 'Bring a reusable bag for your shopping trip.' },
+  { id: 'return-bottles-cans', title: 'Return bottles or cans to a collection point', guidance: 'Send drink containers back through the right collection stream.' },
+  { id: 'pick-up-litter', title: 'Pick up litter', guidance: 'Safely pick up litter and dispose of it properly.' },
+  { id: 'dispose-litter', title: 'Dispose of litter in a bin', guidance: 'Keep shared spaces clean by using a bin.' },
+  { id: 'reusable-takeaway-container', title: 'Bring reusable containers for takeaway food', guidance: 'Skip single-use packaging for your takeaway meal.' },
+  { id: 'reusable-cafe-cup', title: 'Use a reusable cup at a café', guidance: 'Bring your own cup for your next café drink.' },
+];
+
 export const crew = {
   name: 'Glass Guardians',
   members: [
@@ -22,8 +38,7 @@ export const crew = {
     { name: 'Maya', initials: 'M', tone: 'coral' },
     { name: 'Noah', initials: 'N', tone: 'sky' },
   ],
-  mission: { title: 'Defeat the Landfill Monster', progress: 64, target: 100, endsLabel: '3 days left' },
-  league: { name: 'Sprout League', rank: 4, total: 12 },
+  league: { name: 'NUS League', rank: 4, total: 12, minimumMembers: 3 },
   streak: 4,
   repairTokens: 1,
 };
@@ -35,11 +50,11 @@ export const activity = [
 ];
 
 export const leagueRows = [
-  { rank: 1, name: 'Bottle Brigade', score: 910, trend: 'up' },
-  { rank: 2, name: 'Compost Club', score: 835, trend: 'up' },
-  { rank: 3, name: 'The Recyclables', score: 790, trend: 'down' },
+  { rank: 1, name: 'School of Computing', score: 910, trend: 'up' },
+  { rank: 2, name: 'College of Design and Engineering', score: 835, trend: 'up' },
+  { rank: 3, name: 'Faculty of Science', score: 790, trend: 'down' },
   { rank: 4, name: 'Glass Guardians', score: 745, trend: 'you' },
-  { rank: 5, name: 'Bin There', score: 710, trend: 'up' },
+  { rank: 5, name: 'NUS Business School', score: 710, trend: 'up' },
 ];
 
 export const cosmetics = [

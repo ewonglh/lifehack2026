@@ -4,15 +4,24 @@
 
 html {
   background: #f7f4ea;
+  box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
 }
 
 body {
-  min-width: 320px;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .app-layout {
   min-height: 100vh;
-  padding-bottom: 5rem;
+  min-height: 100dvh;
+  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
 }
 
 .app-bottom-nav {
@@ -23,7 +32,7 @@ body {
   left: 0;
   display: flex;
   justify-content: center;
-  gap: .25rem;
+  gap: .1rem;
   padding: .45rem max(1rem, env(safe-area-inset-right)) calc(.45rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
   border-top: 2px solid #173d36;
   background: rgb(247 244 234 / 96%);
@@ -31,14 +40,17 @@ body {
 
   a {
     display: grid;
-    min-width: 4.25rem;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 2.75rem;
     place-items: center;
-    padding: .25rem .6rem;
+    padding: .25rem .2rem;
     border-radius: .65rem;
     color: #426057;
     font-size: .7rem;
     font-weight: 700;
     text-decoration: none;
+    touch-action: manipulation;
 
     i { font-size: 1.1rem; }
 
@@ -46,5 +58,14 @@ body {
       background: #d7f25a;
       color: #173d36;
     }
+  }
+}
+
+@media (width <= 360px) {
+  .app-bottom-nav {
+    padding-right: max(.45rem, env(safe-area-inset-right));
+    padding-left: max(.45rem, env(safe-area-inset-left));
+
+    a { font-size: .63rem; }
   }
 }

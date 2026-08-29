@@ -1,10 +1,16 @@
-export function appShell(title, eyebrow, content) {
+export function appShell(title, eyebrow, content, infoText = 'Learn more about this part of EcoCrew.') {
   const page = document.createElement('main');
   page.className = 'ecocrew-page';
   page.innerHTML = `
     <header class="ecocrew-page__header">
       <div class="ecocrew-wordmark"><span aria-hidden="true">✦</span> EcoCrew</div>
-      <div class="ecocrew-avatar" aria-label="Your profile">I</div>
+      <div class="ecocrew-header-actions">
+        <details class="ecocrew-page-info">
+          <summary aria-label="About this page"><i class="bi bi-info-lg" aria-hidden="true"></i></summary>
+          <div class="ecocrew-page-info__panel"><strong>About this page</strong><p>${escapeHtml(infoText)}</p></div>
+        </details>
+        <a class="ecocrew-avatar" href="#/profile" aria-label="Go to your profile">I</a>
+      </div>
     </header>
     <section class="ecocrew-page__intro">
       <p class="ecocrew-eyebrow">${eyebrow}</p>

@@ -1,17 +1,17 @@
 # EcoCrew
 
-EcoCrew is a mobile-first social recycling game. Players post a photo of a household item, choose the bin they think is correct, receive AI-assisted disposal guidance, and contribute points to a private crew, weekly mission, and shared streak.
+EcoCrew is a mobile-first social sustainability game. Players complete a daily task, upload proof, earn points, and contribute to a private crew and shared streak.
 
 The current repository contains a working frontend demo with deterministic mock analysis and browser persistence. Supabase authentication, database persistence, Storage, and the production VLM adapter remain integration work.
 
 ## Current demo features
 
-- Responsive dashboard with daily post allowance, points, crew streak, mission progress, and cosmetic unlock progress.
+- Responsive dashboard with daily task completion, points, crew streak, and cosmetic unlock progress.
 - Post flow with camera/file upload, image preview, four disposal choices, simulated analysis, and a result breakdown.
 - Register and login screens with browser validation and mock session state.
 - Editable profile with name, handle, age, About Myself text, lifetime points, cosmetics, and a list of completed posts.
 - Crew hub with Join and Create flows. The controls disappear after membership is saved, and a crew owner can delete their crew after confirmation.
-- Crew mission, activity feed, reactions, weekly league points that reset every Monday at midnight SGT, and cosmetic collection.
+- Crew activity feed, reactions, weekly league points that reset every Monday at midnight SGT, and cosmetic collection.
 - Crew invite dropdown for X, Instagram, Telegram, and WhatsApp. Instagram copies the invite link for pasting; the other choices open their web share flow.
 - An Info control in the top-right corner of every page explains that screen’s purpose.
 - Keyboard-friendly controls, labelled bin choices, responsive layouts, and reduced-motion support.
@@ -67,7 +67,7 @@ npm.cmd --prefix ".\lifehack2026" run dev
 | `#/dashboard` | Daily progress and primary Create Post action |
 | `#/sort` | Create Post photo and bin-selection flow; the path is retained temporarily for compatibility |
 | `#/result` | Classification guidance, points, crew progress, and unlock result |
-| `#/crew` | Crew membership, mission, feed, reactions, and invitations |
+| `#/crew` | Crew membership, feed, reactions, and invitations |
 | `#/league` | Weekly cohort leaderboard and cosmetics |
 | `#/profile` | Editable profile and My Posts history |
 
@@ -80,7 +80,7 @@ The frontend currently uses `src/features/ecocrew/scan-service.js` as a mock ada
 - daily post count and daily points;
 - lifetime profile points, which do not reset;
 - weekly league points and the active Singapore week key;
-- mission progress and the latest result;
+- the latest result;
 - profile edits;
 - profile post summaries;
 - crew membership and invite code;
@@ -135,13 +135,13 @@ This runs Stylelint and creates a production Vite build. Other commands are:
 
 - VLM credentials must stay in a Supabase Edge Function; never expose them in client JavaScript or `VITE_*` variables.
 - Item photos remain private by default. A profile post currently exposes only a disposal summary, not the image.
-- The backend owns canonical points, daily limits, membership, streaks, missions, and unlocks.
+- The backend owns canonical points, daily limits, membership, streaks, and unlocks.
 - Keep mock responses aligned with [CONTRACTS.md](./CONTRACTS.md) while real services are developed.
 - See [DEVPLAN.md](./DEVPLAN.md) for product priorities, ownership, milestones, and remaining work.
 
 ## Team ownership
 
-- **Person 1 - Backend:** Supabase schema/RLS/Storage, Edge Functions, VLM adapter, scoring, quotas, missions, streaks, and backend tests.
+- **Person 1 - Backend:** Supabase schema/RLS/Storage, Edge Functions, VLM adapter, scoring, quotas, streaks, and backend tests.
 - **Person 2 - Frontend platform:** application bootstrap, shared router/layouts/components/styles, authentication integration, settings, and global accessibility/session behavior.
 - **Person 3 (Irfan) - Product pages:** dashboard, Create Post flow, result, crew, activity, invitations, league, cosmetics, profile pages, feature-specific styling, and end-to-end user journeys.
 
