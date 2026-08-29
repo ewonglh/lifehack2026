@@ -1,2 +1,50 @@
 @use "bootstrap-overrides";
 @use "tokens";
+@use "features/ecocrew-game";
+
+html {
+  background: #f7f4ea;
+}
+
+body {
+  min-width: 320px;
+}
+
+.app-layout {
+  min-height: 100vh;
+  padding-bottom: 5rem;
+}
+
+.app-bottom-nav {
+  position: fixed;
+  z-index: 10;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  gap: .25rem;
+  padding: .45rem max(1rem, env(safe-area-inset-right)) calc(.45rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  border-top: 2px solid #173d36;
+  background: rgb(247 244 234 / 96%);
+  backdrop-filter: blur(10px);
+
+  a {
+    display: grid;
+    min-width: 4.25rem;
+    place-items: center;
+    padding: .25rem .6rem;
+    border-radius: .65rem;
+    color: #426057;
+    font-size: .7rem;
+    font-weight: 700;
+    text-decoration: none;
+
+    i { font-size: 1.1rem; }
+
+    &.is-active {
+      background: #d7f25a;
+      color: #173d36;
+    }
+  }
+}
