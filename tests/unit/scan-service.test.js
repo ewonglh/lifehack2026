@@ -6,7 +6,10 @@ import {
   completeDemoSort,
   confirmDemoAction,
   createDemoCrew,
+  equipDemoCosmetic,
   getDailyTask,
+  getDemoCosmetics,
+  getDemoProfile,
   getDemoLeagueOverview,
   getDemoState,
   joinDemoCrew,
@@ -142,9 +145,20 @@ describe('demo action check-in rules', () => {
 
     expect(result.outcome).toBe('completed');
     expect(result.behaviorCheckIn.status).toBe('confirmed');
+    expect(result.unlock).toMatchObject({ cosmeticId: 'leaf-frame', kind: 'frame' });
     expect(() => completeDemoSort('recycle')).toThrowError(
       expect.objectContaining({ code: 'DAILY_TASK_ALREADY_SUBMITTED' }),
     );
+  });
+
+  it('persists the equipped leaf frame in the demo profile state', () => {
+    expect(getDemoCosmetics().find((item) => item.id === 'leaf-frame')).toMatchObject({
+      unlocked: true,
+      equipped: true,
+    });
+
+    expect(equipDemoCosmetic('leaf-frame')).toMatchObject({ id: 'leaf-frame', equipped: true });
+    expect(getDemoProfile().frameId).toBe('leaf-frame');
   });
 
   it('keeps crew leave and league queue behavior role-aware in the mock adapter', () => {

@@ -200,6 +200,26 @@ body {
   width: 5rem;
 }
 
+.avatar-frame-wrap {
+  display: inline-flex;
+  position: relative;
+}
+
+.avatar-frame-wrap .avatar {
+  position: relative;
+  z-index: 0;
+}
+
+.avatar-frame {
+  height: 135%;
+  inset: -17.5%;
+  object-fit: contain;
+  pointer-events: none;
+  position: absolute;
+  width: 135%;
+  z-index: 1;
+}
+
 .toast-stack {
   bottom: 1rem;
   max-width: calc(100vw - 2rem);

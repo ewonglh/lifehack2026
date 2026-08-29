@@ -22,12 +22,13 @@ const profileData = {
     location: 'Singapore',
     about: '<script>alert(1)</script>',
     leaderboardVisible: true,
+    frameId: 'leaf-frame',
   },
   lifetimePoints: 120,
   bestStreak: 4,
   cosmetics: [
+    { id: 'leaf-frame', name: 'Leaf Frame', kind: 'frame', unlocked: true, equipped: true },
     { id: 'moss', name: 'Moss badge', icon: '🌿', unlocked: true, equipped: false },
-    { id: 'leaf', name: 'Leaf badge', icon: '🍃', unlocked: true, equipped: true },
   ],
   posts: [
     {
@@ -59,6 +60,8 @@ describe('profile cosmetics and post history', () => {
     expect(rendered.element.textContent).toContain('Daily task completed');
     expect(rendered.element.textContent).not.toMatch(/posts?/i);
     expect(rendered.element.textContent).not.toContain('action');
+    expect(content.querySelector('.ecocrew-profile-frame')).not.toBeNull();
+    expect(content.querySelector('[data-equip-cosmetic="leaf-frame"] img')).not.toBeNull();
 
     const equipButton = content.querySelector('[data-equip-cosmetic="moss"]');
     expect(equipButton).not.toBeNull();

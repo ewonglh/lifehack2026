@@ -1,4 +1,5 @@
 import { ecoCrewService } from '../services/ecocrew-service.js';
+import { loadingState } from '../components/loading-state.js';
 import {
   appShell,
   navigate as defaultNavigate,
@@ -19,20 +20,33 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
   const page = appShell(
     'Today’s action',
     name === 'there' ? 'Your bottle habit' : 'Welcome back, ' + name,
-    '<section class="ecocrew-hero-card">' +
-      '<div><p class="ecocrew-kicker" data-dashboard-task-title>CLEAN BOTTLE CHECK</p><h2 data-dashboard-task-instruction>Loading today’s action…</h2><p data-dashboard-task-meta>Loading today’s task…</p></div>' +
+    '<section class="ecocrew-hero-card" data-dashboard-task-region aria-busy="true">' +
+      '<div data-dashboard-task-loading>' +
+      loadingState('Loading today’s action') +
+      '</div>' +
+      '<div data-dashboard-task-content hidden><p class="ecocrew-kicker" data-dashboard-task-title>CLEAN BOTTLE CHECK</p><h2 data-dashboard-task-instruction>Today’s action</h2><p data-dashboard-task-meta>Complete your assigned action.</p></div>' +
       '<span class="ecocrew-hero-card__art" aria-hidden="true">♻</span>' +
-      '<button class="btn ecocrew-btn-primary" type="button" data-action="sort">Start today’s action</button>' +
+      '<button class="btn ecocrew-btn-primary" type="button" data-action="sort" disabled>Start today’s action</button>' +
       '</section>' +
-      '<section class="ecocrew-stat-grid" aria-label="Your progress">' +
+      '<section class="ecocrew-stat-grid" data-dashboard-stats aria-label="Your progress" aria-busy="true">' +
+      '<div data-dashboard-stats-loading>' +
+      loadingState('Loading your progress') +
+      '</div>' +
+      '<div data-dashboard-stats-content hidden>' +
       '<article><span>Today</span><strong data-dashboard-today>0</strong><small>points earned</small></article>' +
       '<article><span>Crew streak</span><strong data-dashboard-streak>—</strong><small>days together</small></article>' +
       '<article><span>Weekly points</span><strong data-dashboard-weekly>—</strong><small data-dashboard-weekly-label>this league week</small></article>' +
+      '</div>' +
       '</section>' +
-      '<section class="ecocrew-card ecocrew-mission-card" data-dashboard-crew-card>' +
+      '<section class="ecocrew-card ecocrew-mission-card" data-dashboard-crew-card aria-busy="true">' +
+      '<div data-dashboard-mission-loading>' +
+      loadingState('Loading weekly mission') +
+      '</div>' +
+      '<div data-dashboard-mission-content hidden>' +
       '<div class="ecocrew-card__top"><div><p class="ecocrew-kicker">WEEKLY MISSION</p><h2 data-dashboard-mission>Loading mission…</h2></div><span data-dashboard-mission-end></span></div>' +
       '<div data-dashboard-progress></div>' +
       '<div class="ecocrew-mission-card__footer"><strong data-dashboard-mission-count>—</strong></div>' +
+      '</div>' +
       '</section>' +
       '<section class="ecocrew-card ecocrew-dashboard-no-crew" data-dashboard-no-crew hidden><p class="ecocrew-kicker">YOUR PROGRESS COUNTS</p><h2>You can start on your own.</h2><p class="ecocrew-muted">Complete today’s action now. After check-in, you can join or create a crew.</p></section>',
     'Complete one small bottle-recycling action, check in honestly, and build your progress over time.',
@@ -47,8 +61,30 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
     element: page,
     title: 'Today’s action',
     afterRender: async () => {
+      const taskRegion = page.querySelector('[data-dashboard-task-region]');
+      const taskLoading = page.querySelector('[data-dashboard-task-loading]');
+      const taskContent = page.querySelector('[data-dashboard-task-content]');
+      const statsRegion = page.querySelector('[data-dashboard-stats]');
+      const statsLoading = page.querySelector('[data-dashboard-stats-loading]');
+      const statsContent = page.querySelector('[data-dashboard-stats-content]');
+      const missionLoading = page.querySelector('[data-dashboard-mission-loading]');
+      const missionContent = page.querySelector('[data-dashboard-mission-content]');
+
+      const showDataRegions = () => {
+        if (taskLoading) taskLoading.hidden = true;
+        if (taskContent) taskContent.hidden = false;
+        if (taskRegion) taskRegion.setAttribute('aria-busy', 'false');
+        if (statsLoading) statsLoading.hidden = true;
+        if (statsContent) statsContent.hidden = false;
+        if (statsRegion) statsRegion.setAttribute('aria-busy', 'false');
+        if (missionLoading) missionLoading.hidden = true;
+        if (missionContent) missionContent.hidden = false;
+        page.querySelector('[data-dashboard-crew-card]')?.setAttribute('aria-busy', 'false');
+      };
+
       try {
         const data = await ecoCrewService.getDashboardData();
+        showDataRegions();
         const crew = data.crew || {};
         const mission = crew.mission;
         const dailyPoints = Number(data.dailyPoints ?? data.todayPoints ?? 0);
@@ -118,6 +154,7 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
           }
         }
         if (button) {
+          button.disabled = !data.task;
           if (status === 'completed') {
             button.textContent = 'View today’s result';
             button.dataset.destination =
@@ -132,6 +169,9 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
           }
         }
       } catch {
+        showDataRegions();
+        const button = page.querySelector('[data-action="sort"]');
+        if (button) button.disabled = true;
         setText(
           page,
           '[data-dashboard-task-meta]',

@@ -1,5 +1,6 @@
 import { demoFixtures } from '../features/ecocrew/mock-data.js';
 import { ecoCrewService } from '../services/ecocrew-service.js';
+import { loadingState } from '../components/loading-state.js';
 import {
   appShell,
   escapeHtml,
@@ -8,7 +9,7 @@ import {
 
 function fixtureChoices() {
   return (
-    '<details class="ecocrew-demo-fixtures"><summary>Use a demo example</summary><p class="ecocrew-muted">Only use this when you do not have a bottle nearby.</p><div class="ecocrew-demo-fixtures__grid">' +
+    '<details class="ecocrew-demo-fixtures" data-task-control hidden><summary>Use a demo example</summary><p class="ecocrew-muted">Only use this when you do not have a bottle nearby.</p><div class="ecocrew-demo-fixtures__grid">' +
     demoFixtures
       .map(
         (fixture) =>
@@ -60,9 +61,11 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
   const page = appShell(
     'Today’s action',
     'Clean Bottle Check',
-    '<section class="ecocrew-sort-card">' +
-      '<div class="ecocrew-task-prompt"><p class="ecocrew-kicker" data-task-title>TODAY’S ACTION</p><h2 data-task-instruction>Loading today’s action…</h2></div>' +
-      '<div class="ecocrew-upload" data-upload-area>' +
+    '<section class="ecocrew-sort-card" data-task-region aria-busy="true">' +
+      '<div class="ecocrew-task-prompt"><div data-task-loading>' +
+      loadingState('Loading today’s action') +
+      '</div><div data-task-content hidden><p class="ecocrew-kicker" data-task-title>TODAY’S ACTION</p><h2 data-task-instruction>Today’s action</h2></div></div>' +
+      '<div class="ecocrew-upload" data-upload-area data-task-control hidden>' +
       '<input id="item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" class="visually-hidden">' +
       '<label for="item-photo" class="ecocrew-upload__label"><span class="ecocrew-upload__icon" aria-hidden="true">⌁</span><strong>Take a photo of the empty bottle</strong><small>Use your camera or choose an image</small></label>' +
       '<img class="ecocrew-preview d-none" alt="Selected empty bottle preview">' +
@@ -87,6 +90,13 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
   let previewUrl = null;
   let selectedFile = null;
   let selectedFixture = null;
+
+  function setTaskAvailability(available) {
+    page.querySelectorAll('[data-task-control]').forEach((control) => {
+      control.hidden = !available;
+    });
+    if (photo) photo.disabled = !available;
+  }
 
   function showSelectedFile(file, fixture = null) {
     selectedFile = file;
@@ -199,6 +209,17 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
     element: page,
     title: 'Today’s action',
     afterRender: async () => {
+      const taskRegion = page.querySelector('[data-task-region]');
+      const taskLoading = page.querySelector('[data-task-loading]');
+      const taskContent = page.querySelector('[data-task-content]');
+
+      const finishTaskLoading = (available) => {
+        if (taskLoading) taskLoading.hidden = true;
+        if (taskContent) taskContent.hidden = false;
+        if (taskRegion) taskRegion.setAttribute('aria-busy', 'false');
+        setTaskAvailability(available);
+      };
+
       try {
         const task = await ecoCrewService.getDailyTask();
         taskId = task?.taskId;
@@ -208,6 +229,7 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
         if (taskInstruction)
           taskInstruction.textContent = task?.instruction || 'Complete today’s assigned action.';
         const existingResult = await ecoCrewService.getLastResult();
+        finishTaskLoading(Boolean(task?.taskId));
         if (task && existingResult?.taskDay === task.taskDay) {
           if (existingResult.behaviorCheckIn?.status === 'pending')
             showCompleted(existingResult, true);
@@ -218,6 +240,7 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
             showCompleted(existingResult);
         }
       } catch (exception) {
+        finishTaskLoading(false);
         const taskTitle = page.querySelector('[data-task-title]');
         const taskInstruction = page.querySelector('[data-task-instruction]');
         if (taskTitle) taskTitle.textContent = 'Today’s action';

@@ -1,3 +1,4 @@
+import { getCosmeticAsset } from './cosmetic-assets.js';
 import { cosmeticVisual } from '../../components/cosmetic-visual.js';
 
 export function appShell(
@@ -11,10 +12,10 @@ export function appShell(
       .trim()
       .charAt(0)
       .toUpperCase() || 'I';
-  const avatarFrame = cosmeticVisual(
-    { id: document.body.dataset.ecocrewFrameId },
-    'ecocrew-avatar-frame',
-  );
+  const frameId = document.body.dataset.ecocrewFrameId;
+  const avatarFrame = getCosmeticAsset(frameId)
+    ? cosmeticVisual({ id: frameId }, 'ecocrew-avatar-frame')
+    : '';
   const page = document.createElement('main');
   page.className = 'ecocrew-page';
   page.tabIndex = -1;

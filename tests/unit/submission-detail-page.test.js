@@ -48,6 +48,7 @@ describe('submission result presentation', () => {
         explanation: 'The item is a PET bottle.',
       },
       points: { total: 25, actionCompletion: 10, preparation: 5, dailyBonus: 10 },
+      unlock: { cosmeticId: 'leaf-frame', kind: 'frame', name: 'Leaf Frame' },
     };
     confirmAction.mockResolvedValue(confirmed);
     const rendered = renderSubmissionDetailPage();
@@ -74,6 +75,7 @@ describe('submission result presentation', () => {
       'ACTION COMPLETE',
     );
     expect(rendered.element.querySelector('[data-result-points]').textContent).toContain('25');
+    expect(rendered.element.querySelector('[data-result-unlock-icon] img')).not.toBeNull();
   });
 
   it('keeps server-provided explanations as text', async () => {
