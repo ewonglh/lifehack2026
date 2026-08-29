@@ -6,16 +6,16 @@ This document defines the agreements between product, design, frontend, Supabase
 
 ### 1.1 The core promise
 
-EcoCrew makes correct disposal quicker, clearer, and more rewarding. It must not shame users, overstate certainty, or make competition more important than learning.
+EcoCrew makes practical sustainable actions easier to repeat and more rewarding. It must not shame users, overstate evidence certainty, or make competition more important than positive habit formation.
 
 ### 1.2 The daily-loop boundary
 
 The supported core loop is:
 
-1. Capture or upload an item image.
-2. Make a disposal-bin choice.
-3. Receive guidance and confirm/correct the result.
-4. Create a profile post summary and earn bounded progress for the player and crew.
+1. Receive one assigned sustainability task for the current Singapore day.
+2. Complete the task and capture or upload photo evidence from Home.
+3. Submit the evidence for verification and receive a clear outcome and point breakdown.
+4. Create a profile post summary and earn bounded progress for the player and any enrolled crew league.
 
 Anything outside that loop—national rankings, large reward economies, contacts synchronization, many local rulesets—is secondary. It must not block a player from completing the loop.
 
@@ -34,7 +34,7 @@ Anything outside that loop—national rankings, large reward economies, contacts
 | Supabase Postgres + RLS | Database | Canonical user, crew, progress, and inventory state; access control | Model inference or visual presentation |
 | Edge Functions | Server boundary | Secret VLM calls, schema validation, score calculation, trusted mutations | Long-lived UI state or client-only animation logic |
 | VLM provider | External service | Image interpretation as advisory input | User identity, authorization, final irreversible game decisions |
-| Product/config data | Versioned configuration | Point values, item caps, mission definitions, cosmetic unlock rules | Hard-coded divergent rules in multiple clients |
+| Product/config data | Versioned configuration | Point values, daily task definitions, league rules, cosmetic unlock rules | Hard-coded divergent rules in multiple clients |
 
 **Rule:** the browser treats all score-like data as display data until a trusted server-side function confirms it.
 
@@ -54,12 +54,13 @@ Anything outside that loop—national rankings, large reward economies, contacts
 
 - A player can see a crew only if they are an active `crew_members` record.
 - Crew owners can invite/remove members and configure crew-level settings.
-- A player may leave a crew without deleting their personal scan history.
+- A player may leave a crew without deleting their personal task-submission history.
 - Historical crew totals remain intact when someone leaves, but private player data is not exposed after departure.
-- Only the crew owner may delete a crew. Deletion is a confirmed, trusted server transaction that invalidates invites, removes all active memberships, and removes or archives crew-scoped mission, streak, feed, and league state according to retention policy.
-- Deleting a crew does not delete a former member’s personal profile, private posts, scan history, or lifetime points.
+- Only the crew owner may delete a crew. Deletion is a confirmed, trusted server transaction that invalidates invites, removes all active memberships, and removes or archives crew-scoped streak, feed, and league state according to retention policy.
+- Deleting a crew does not delete a former member’s personal profile, private posts, task-submission history, or lifetime points.
 - The product should define a small initial maximum crew size (for example, 8) and enforce it server-side.
 - Join and Create actions are shown only when the player has no active crew membership. The server remains responsible for preventing conflicting memberships and enforcing capacity.
+- A crew may have only one active league entry. Only its owner may enroll or leave it, and enrollment requires at least three active members in the current demo.
 
 ### 3.3 Invites and contacts
 
@@ -71,14 +72,14 @@ Anything outside that loop—national rankings, large reward economies, contacts
 
 ### 3.4 Images and activity sharing
 
-- Item photos are private by default.
-- The social feed shares an activity summary (for example, “Ari completed a recycling action”), not the photo, unless the user explicitly chooses otherwise.
-- A **post** is the user-facing projection of a completed `scan_event`. Its default profile representation contains item name, chosen/final bin, outcome, points, and creation time, but not the original image.
-- Creating a scan does not automatically make the original image public. Future image sharing requires a separate, explicit visibility choice.
+- Task-evidence photos are private by default.
+- The social feed shares an activity summary (for example, “Ari completed a sustainability task”), not the photo, unless the user explicitly chooses otherwise.
+- A **post** is the user-facing projection of a completed task submission. Its default profile representation contains task identity, outcome, points, and creation time, but not the original image.
+- Creating a task submission does not automatically make the original image public. Future image sharing requires a separate, explicit visibility choice.
 - Players can delete their images and activity records, subject to clearly explained leaderboard/history effects.
 - Never use submitted images for unrelated model training or marketing without separate, explicit consent.
 
-## 4. VLM and classification contracts
+## 4. VLM and evidence-verification contracts
 
 ### 4.1 Trust boundary
 
@@ -89,47 +90,42 @@ Anything outside that loop—national rankings, large reward economies, contacts
 
 ### 4.2 Required normalized response
 
-Every classification must be normalized and schema-validated before it reaches game logic:
+Every verification response must be normalized and schema-validated before it reaches game logic:
 
 ```ts
-type DisposalBin = "recycle" | "compost" | "reuse_return" | "landfill" | "unknown";
-
-type ClassificationResult = {
-  itemName: string;
-  material: string | null;
-  recommendedBin: DisposalBin;
-  preparationTip: string | null;
+type TaskEvidenceResult = {
+  taskId: string;
+  outcome: "verified" | "needs_retry" | "unknown";
   confidence: number; // 0–1
-  localeRuleVersion: string;
-  explanation: string | null;
+  reason: string;
 };
 ```
 
-`unknown` is a valid outcome. Do not coerce uncertainty into a recycling decision.
+`unknown` is a valid outcome. Do not coerce uncertain evidence into a verified completion.
 
 ### 4.3 Confidence and correction
 
 | Condition | Product behavior | Scoring behavior |
 |---|---|---|
-| High confidence | Reveal the recommendation and request user confirmation | Eligible for normal points after confirmation |
-| Low confidence | Explain uncertainty; let the player choose a bin or retry | No accuracy bonus; optionally award participation only |
-| User disagrees | Let them select another bin and optionally report why | Store correction; do not penalize by default |
-| Image/API failure | Offer retry and manual education card | No scan points; never break the daily flow |
+| High confidence | Confirm that the assigned task is represented in the evidence | Eligible for configured task and evidence points |
+| Low confidence | Explain uncertainty and let the player retry with clearer evidence | No verification points until verified |
+| Wrong task shown | Remind the player of the assigned task and allow a retry | No points; do not consume the daily completion |
+| Image/API failure | Preserve context and offer retry | No points; never break the daily flow |
 
 The threshold is configurable server-side (initially, for example, `0.70`) and must not be duplicated in the client.
 
-### 4.4 Local disposal rules
+### 4.4 Task catalog and verification scope
 
-- Model guidance is scoped to an explicit locale/rule version.
-- The result includes `localeRuleVersion` so past scans can be interpreted accurately.
-- Launch with one supported ruleset. Outside it, the UI says guidance may differ locally.
-- Source-of-truth disposal rules live in curated configuration, not solely in an unversioned model prompt.
+- Daily task definitions live in versioned server-side configuration.
+- Verification is scoped to the task assigned to that player for that day.
+- Task wording and evidence guidance must be available to the verifier in a trusted prompt/configuration.
+- The client must not substitute another task identifier to obtain points.
 
 ## 5. Scoring and progression contracts
 
 ### 5.1 Fairness principles
 
-- Reward correct decisions and preparation, not raw material volume.
+- Reward verified sustainable actions and supporting evidence, not raw submission volume.
 - Cap repeatable points per day and per action type.
 - A player’s lifetime profile total starts when the account is created and does not reset between league weeks.
 - League points belong to one explicit weekly window and reset at its boundary. The initial demo boundary is Monday at `00:00` in `Asia/Singapore`.
@@ -146,8 +142,8 @@ type ScoreEvent = {
   id: string;
   playerId: string;
   crewId: string | null;
-  scanEventId: string | null;
-  actionType: "correct_sort" | "prep_step" | "daily_first" | "mission" | "streak_bonus";
+  taskSubmissionId: string | null;
+  actionType: "task_completion" | "photo_evidence" | "daily_first" | "streak_bonus";
   points: number;
   scoringRuleVersion: string;
   occurredAt: string;
@@ -158,16 +154,15 @@ Player totals, crew totals, and rankings are derived from these events or update
 
 ### 5.3 Idempotency and duplicate prevention
 
-- Each scan submission includes an idempotency key generated by the client.
+- Each task submission includes an idempotency key generated by the client.
 - Repeating the same request returns the original result; it does not create more score events.
 - The Edge Function enforces daily caps and duplicate/rate limits.
-- A correction can amend classification metadata but cannot repeatedly mint new points.
+- A retry or verification correction cannot repeatedly mint new points.
 
 ### 5.4 Streak definition
 
 - A streak is based on a declared timezone and daily cutoff, stored per crew.
 - A crew completes a day when its configured minimum number of distinct members complete a qualifying action.
-- A repair token is consumed only through a trusted transaction and only once per missed day.
 - The UI must state the exact completion rule and cutoff.
 
 ### 5.5 Leaderboard definition
@@ -176,6 +171,7 @@ Player totals, crew totals, and rankings are derived from these events or update
 - Resetting a weekly league must not modify lifetime points, historical posts, or immutable score events; the weekly total is a windowed projection of those events.
 - Ties use a documented tie-breaker (for example, earliest completion time, then shared rank).
 - A crew’s relevant league is the default view; worldwide ranking is secondary.
+- League comparisons use average weekly points per active member so larger crews do not receive an automatic advantage.
 - Rankings need not be real-time; label refresh time honestly.
 
 ## 6. API contracts
@@ -199,10 +195,9 @@ type Profile = {
 
 type ProfilePost = {
   id: string;
-  scanEventId: string;
-  itemName: string;
-  finalBin: DisposalBin;
-  isCorrect: boolean | null;
+  taskSubmissionId: string;
+  taskId: string;
+  taskTitle: string;
   points: number;
   createdAt: string;
   visibility: "private" | "crew" | "public";
@@ -213,22 +208,22 @@ type CrewMembership = {
   crewId: string;
   crewName: string;
   role: "owner" | "member";
+  memberCount: number;
   joinedAt: string;
 };
 ```
 
 The profile update endpoint accepts only editable fields (`displayName`, `handle`, `age`, and `about`) plus explicit visibility preferences. It must ignore attempts to update points, streaks, roles, inventory ownership, or server-generated statistics.
 
-Crew Create and Join mutations return the same normalized `CrewMembership` shape. Joining accepts an opaque invite token, not a trusted crew ID supplied by the browser. A successful mutation invalidates crew, mission, feed, and league queries so Join/Create controls disappear immediately.
+Crew Create and Join mutations return the same normalized `CrewMembership` shape. Joining accepts an opaque invite token, not a trusted crew ID supplied by the browser. A successful mutation invalidates crew, feed, and league queries so Join/Create controls disappear immediately.
 
-### 6.1 Classify-and-score request
+### 6.1 Verify-task-and-score request
 
 ```ts
-type ClassifyAndScoreRequest = {
+type VerifyTaskAndScoreRequest = {
   idempotencyKey: string;
   imageStoragePath: string;
-  userSelectedBin: DisposalBin;
-  locale: string;
+  taskId: string;
   crewId?: string;
 };
 ```
@@ -238,22 +233,20 @@ Validation rules:
 - Requesting user owns the image path.
 - File type/size limits are verified server-side.
 - `crewId`, if supplied, belongs to the requesting user.
-- Bin values are enum-validated.
+- `taskId` references the task assigned to that player for the current Singapore day.
 - A request is rate-limited before calling the VLM.
 
 ### 6.2 Response
 
 ```ts
-type ClassifyAndScoreResponse = {
-  scanEventId: string;
+type VerifyTaskAndScoreResponse = {
+  taskSubmissionId: string;
   post: ProfilePost;
-  classification: ClassificationResult;
-  outcome: "confirmed" | "needs_confirmation" | "unknown";
+  verification: { outcome: "verified" | "needs_retry" | "unknown"; reason: string };
   awarded: Array<{ actionType: string; points: number }>;
   dailyPointsRemaining: number;
   crewUpdate?: {
     weeklyPoints: number;
-    missionProgress: number;
     streakStatus: "advanced" | "already_complete" | "not_qualified";
   };
 };
@@ -287,9 +280,9 @@ All endpoints return a stable error code and safe user message:
 |---|---|
 | Authentication/session | Supabase Auth |
 | Profile and crew membership | Postgres tables protected by RLS |
-| Scan image bytes | Private Supabase Storage bucket |
-| Classification and score events | Postgres, created through trusted function |
-| Mission/rules configuration | Versioned server-side configuration/table |
+| Task evidence image bytes | Private Supabase Storage bucket |
+| Evidence verification and score events | Postgres, created through trusted function |
+| Daily task and league configuration | Versioned server-side configuration/table |
 | UI cache | Client query cache only; disposable |
 
 ### 7.2 Access controls
@@ -301,7 +294,7 @@ All endpoints return a stable error code and safe user message:
 
 ### 7.3 Retention and deletion
 
-- Define a retention period for raw images; prefer automatic deletion after classification where feasible.
+- Define a retention period for raw images; prefer automatic deletion after verification where feasible.
 - Deletion of an image should not require deleting an aggregated, non-identifying score event unless legally required.
 - Deleting a profile should revoke access immediately and cascade/anonymize data according to a documented policy.
 
@@ -318,17 +311,17 @@ All endpoints return a stable error code and safe user message:
 
 ## 9. Analytics contracts
 
-Track only events that answer a product question. Do not log raw images, prompts, disposal explanations, contact lists, or personally sensitive text into generic analytics.
+Track only events that answer a product question. Do not log raw images, prompts, verification explanations, contact lists, or personally sensitive text into generic analytics.
 
 Initial events:
 
 | Event | Required properties | Product question |
 |---|---|---|
-| `daily_challenge_started` | player/crew anonymized IDs, mission ID | Do players begin the loop? |
-| `sort_submitted` | selected bin, locale, confidence band | Is the interaction understandable? |
-| `sort_completed` | outcome, points, duration band | Is the loop fast and satisfying? |
+| `daily_challenge_started` | player/crew anonymized IDs, task ID | Do players begin the loop? |
+| `task_evidence_submitted` | task ID, confidence band | Is the interaction understandable? |
+| `task_completed` | outcome, points, duration band | Is the loop fast and satisfying? |
 | `profile_post_created` | post visibility, image-visible boolean | Do players value keeping a history of eco actions? |
-| `classification_corrected` | model bin, final bin, reason optional | Where is model guidance failing? |
+| `task_evidence_retried` | task ID, reason | Where is evidence guidance failing? |
 | `crew_created/joined` | crew ID, entry method | Do players form or join crews? |
 | `crew_invite_shared` | crew ID, invite channel | Which invitation paths support crew growth? |
 | `reward_unlocked/equipped` | item ID, unlock rule | Are progression rewards motivating? |
@@ -339,7 +332,7 @@ Review retention by cohort (day 1, day 7) and correction rate before expanding r
 
 ### In scope
 
-- One locale, four disposal outcomes, small private crews, seeded weekly mission, reliable mock fallback, cosmetic unlock, and mobile-friendly end-to-end flow.
+- One daily task catalog, small private crews, fair weekly league ranking, reliable mock fallback, cosmetic unlock, and mobile-friendly end-to-end flow.
 
 ### Out of scope unless the core loop is complete
 
@@ -371,14 +364,14 @@ Until Supabase integration is complete, `src/features/ecocrew/scan-service.js` p
 
 ### Browser keys
 
-- `localStorage.ecocrew-demo-state` stores profile edits, post summaries, points, daily usage, crew membership, mission progress, the last result, and reactions.
+- `localStorage.ecocrew-demo-state` stores profile edits, post summaries, points, daily task state, crew and league membership, the last result, cosmetics, and reactions.
 - `sessionStorage.ecocrew-demo-signed-in` records that a mock login/register action was completed.
 - Neither value proves identity or authorization. Route access is not currently guarded.
 
 ### Prototype behaviors
 
-- Image analysis always returns the deterministic bottle fixture after a short delay.
-- The browser currently calculates demo points and mission progress.
+- Evidence analysis currently uses a deterministic delayed mock response.
+- The browser currently calculates demo points and cosmetic progress.
 - The browser stores lifetime points independently from daily and weekly points. It resets weekly league points on the first read after a Monday `00:00` Asia/Singapore boundary.
 - Completing the flow creates a profile post summary in local storage; the selected local image is previewed with an object URL and is not persisted.
 - Join accepts any invite string of at least three characters and maps it to the seeded Glass Guardians crew.
@@ -388,4 +381,4 @@ Until Supabase integration is complete, `src/features/ecocrew/scan-service.js` p
 
 ### Replacement rule
 
-Each prototype mutation must be replaced by an authenticated service call before production. Do not incrementally treat local storage as a cache of trusted totals. When an API is integrated, rehydrate that complete domain (for example, crew membership and mission state together) from the server and remove the corresponding browser mutation.
+Each prototype mutation must be replaced by an authenticated service call before production. Do not incrementally treat local storage as a cache of trusted totals. When an API is integrated, rehydrate that complete domain (for example, crew membership and league state together) from the server and remove the corresponding browser mutation.

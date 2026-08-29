@@ -1,9 +1,14 @@
-import { getDemoCosmetics, getDemoPosts, getDemoProfile, updateDemoProfile } from '../features/ecocrew/scan-service.js';
+import { equipDemoCosmetic, getDemoCosmetics, getDemoPosts, getDemoProfile, updateDemoProfile } from '../features/ecocrew/scan-service.js';
 import { appShell, escapeHtml, navigate } from '../features/ecocrew/page-utils.js';
 
 function postTime(dateString) {
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(dateString).getTime()) / 60000));
-  return minutes < 1 ? 'Just now' : minutes < 60 ? `${minutes} min ago` : 'Today';
+  const timestamp = new Date(dateString).getTime();
+  if (!Number.isFinite(timestamp)) return 'Unknown date';
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)} hr ago`;
+  return new Intl.DateTimeFormat('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }).format(timestamp);
 }
 
 function profileContent(profile, posts, totalPoints, equippedItem, cosmetics) {
@@ -15,7 +20,7 @@ function profileContent(profile, posts, totalPoints, equippedItem, cosmetics) {
     </section>
     <section class="ecocrew-profile-about"><p class="ecocrew-kicker">ABOUT MYSELF</p><p>${escapeHtml(profile.about)}</p><dl><div><dt>Age</dt><dd>${escapeHtml(String(profile.age))}</dd></div><div><dt>Based in</dt><dd>${escapeHtml(profile.location)}</dd></div></dl></section>
     <section class="ecocrew-profile-stats" aria-label="Your EcoCrew stats"><article><strong>${totalPoints.toLocaleString()}</strong><span>total points</span></article><article><strong>${posts.length}</strong><span>posts shared</span></article><article><strong>8 🔥</strong><span>best streak</span></article></section>
-    <section class="ecocrew-card ecocrew-profile-collection"><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">CURRENT LOOK</p><h2>${equippedItem.name}</h2></div><button class="btn btn-link" data-collection>Collection</button></div><div class="ecocrew-profile-items">${cosmetics.filter((item) => item.unlocked).map((item) => `<span title="${item.name}" class="${item.equipped ? 'is-equipped' : ''}" aria-label="${item.name}${item.equipped ? ', equipped' : ''}">${item.icon}</span>`).join('')}</div></section>
+    <section class="ecocrew-card ecocrew-profile-collection"><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">CURRENT LOOK</p><h2>${equippedItem.name}</h2></div></div><div class="ecocrew-profile-items" aria-label="Choose your cosmetic">${cosmetics.filter((item) => item.unlocked).map((item) => `<button type="button" title="${item.name}" class="${item.equipped ? 'is-equipped' : ''}" data-equip-cosmetic="${item.id}" aria-label="Equip ${item.name}" aria-pressed="${item.equipped}">${item.icon}</button>`).join('')}</div></section>
     <section class="ecocrew-profile-posts"><div class="ecocrew-section-heading"><h2>My posts</h2><span>${posts.length ? 'Your latest eco wins' : 'Your eco story starts here'}</span></div>${posts.length ? posts.map((post) => `<article class="ecocrew-profile-post"><span aria-hidden="true">${post.taskId ? '✓' : post.isCorrect ? '♻' : '💡'}</span><div><strong>${escapeHtml(post.itemName)}</strong><p>${post.taskId ? 'Completed daily task' : post.isCorrect ? `Sorted correctly · ${escapeHtml(post.bin)}` : `Learned the right bin · ${escapeHtml(post.bin)}`}</p><small>${postTime(post.createdAt)} · +${post.points} points</small></div></article>`).join('') : `<div class="ecocrew-posts-empty"><span aria-hidden="true">📷</span><strong>No posts yet</strong><p>Upload proof after completing today’s sustainability task.</p><button class="btn ecocrew-btn-primary" type="button" data-create-post>Complete today’s task</button></div>`}</section>
     <section class="ecocrew-profile-actions" aria-label="Profile actions"><button type="button" data-settings><i class="bi bi-gear" aria-hidden="true"></i> Settings <i class="bi bi-chevron-right" aria-hidden="true"></i></button><button type="button" data-privacy><i class="bi bi-shield-check" aria-hidden="true"></i> Privacy & photo controls <i class="bi bi-chevron-right" aria-hidden="true"></i></button><button type="button" data-logout><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Log out <i class="bi bi-chevron-right" aria-hidden="true"></i></button></section></div>`;
 }
@@ -42,8 +47,10 @@ export function renderProfilePage() {
     });
     content.querySelector('[data-cancel]').addEventListener('click', () => navigate('/profile'));
   });
-  page.querySelector('[data-collection]').addEventListener('click', () => navigate('/league'));
-  page.querySelector('[data-create-post]')?.addEventListener('click', () => navigate('/sort'));
+  page.querySelectorAll('[data-equip-cosmetic]').forEach((button) => button.addEventListener('click', () => {
+    if (equipDemoCosmetic(button.dataset.equipCosmetic)) navigate('/profile');
+  }));
+  page.querySelector('[data-create-post]')?.addEventListener('click', () => navigate('/dashboard'));
   page.querySelector('[data-logout]').addEventListener('click', () => { sessionStorage.removeItem('ecocrew-demo-signed-in'); navigate('/login'); });
   page.querySelectorAll('[data-settings], [data-privacy]').forEach((button) => button.addEventListener('click', () => { button.textContent = 'Coming soon'; button.disabled = true; }));
   return page;

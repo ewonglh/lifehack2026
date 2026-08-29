@@ -1,4 +1,7 @@
+import { getDemoProfile } from './scan-service.js';
+
 export function appShell(title, eyebrow, content, infoText = 'Learn more about this part of EcoCrew.') {
+  const profileInitial = getDemoProfile().name.charAt(0).toUpperCase() || 'E';
   const page = document.createElement('main');
   page.className = 'ecocrew-page';
   page.innerHTML = `
@@ -9,7 +12,7 @@ export function appShell(title, eyebrow, content, infoText = 'Learn more about t
           <summary aria-label="About this page"><i class="bi bi-info-lg" aria-hidden="true"></i></summary>
           <div class="ecocrew-page-info__panel"><strong>About this page</strong><p>${escapeHtml(infoText)}</p></div>
         </details>
-        <a class="ecocrew-avatar" href="#/profile" aria-label="Go to your profile">I</a>
+        <a class="ecocrew-avatar" href="#/profile" aria-label="Go to your profile">${escapeHtml(profileInitial)}</a>
       </div>
     </header>
     <section class="ecocrew-page__intro">
@@ -36,6 +39,6 @@ export function progressBar(value, total, label) {
 
 export function escapeHtml(value) {
   const element = document.createElement('span');
-  element.textContent = value;
+  element.textContent = value == null ? '' : String(value);
   return element.innerHTML;
 }

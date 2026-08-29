@@ -7,14 +7,14 @@ The current repository contains a working frontend demo with deterministic mock 
 ## Current demo features
 
 - Responsive dashboard with daily task completion, points, crew streak, and cosmetic unlock progress.
-- Post flow with camera/file upload, image preview, four disposal choices, simulated analysis, and a result breakdown.
+- Home-page task flow with camera/file upload, image preview, completion status, simulated analysis, and a result breakdown.
 - Register and login screens with browser validation and mock session state.
-- Editable profile with name, handle, age, About Myself text, lifetime points, cosmetics, and a list of completed posts.
-- Crew hub with Join and Create flows. The controls disappear after membership is saved, and a crew owner can delete their crew after confirmation.
-- Crew activity feed, reactions, weekly league points that reset every Monday at midnight SGT, and cosmetic collection.
+- Editable profile with name, handle, age, About Myself text, lifetime points, directly selectable unlocked cosmetics, and a list of completed posts.
+- Crew hub with Join, Create, Leave, and owner-only Delete flows. Demo owners can add fixture members to test league eligibility.
+- Crew activity feed, reactions, owner-controlled NUS and SUTD demo league enrollment for crews of at least three members, one active league per crew, fair average-per-member ranking, and cosmetic collection.
 - Crew invite dropdown for X, Instagram, Telegram, and WhatsApp. Instagram copies the invite link for pasting; the other choices open their web share flow.
 - An Info control in the top-right corner of every page explains that screen’s purpose.
-- Keyboard-friendly controls, labelled bin choices, responsive layouts, and reduced-motion support.
+- Keyboard-friendly controls, labelled task submission, responsive layouts, and reduced-motion support.
 
 ## Technology
 
@@ -64,9 +64,9 @@ npm.cmd --prefix ".\lifehack2026" run dev
 | `#/` | Redirects to the dashboard |
 | `#/register` | Create-account demo |
 | `#/login` | Login demo |
-| `#/dashboard` | Daily progress and primary Create Post action |
-| `#/sort` | Create Post photo and bin-selection flow; the path is retained temporarily for compatibility |
-| `#/result` | Classification guidance, points, crew progress, and unlock result |
+| `#/dashboard` | Daily task, photo upload, completion status, and progress |
+| `#/sort` | Redirects legacy Post links to the Home page |
+| `#/result` | Task completion, point breakdown, and unlock result |
 | `#/crew` | Crew membership, feed, reactions, and invitations |
 | `#/league` | Weekly cohort leaderboard and cosmetics |
 | `#/profile` | Editable profile and My Posts history |
@@ -77,13 +77,14 @@ Unknown routes display an in-app not-found state.
 
 The frontend currently uses `src/features/ecocrew/scan-service.js` as a mock adapter. It stores demo data under the `localStorage` key `ecocrew-demo-state`, including:
 
-- daily post count and daily points;
+- daily task assignment, completion count, and daily points;
 - lifetime profile points, which do not reset;
 - weekly league points and the active Singapore week key;
 - the latest result;
 - profile edits;
 - profile post summaries;
-- crew membership and invite code;
+- crew and league membership, invite code, and member count;
+- equipped cosmetics and completed-task unlock progress;
 - activity reactions.
 
 Login/register actions set `ecocrew-demo-signed-in` in `sessionStorage`. This is demonstration state only: there is currently no route guard, password storage, or real authentication.
@@ -113,7 +114,7 @@ public/assets/              Static images and icons
 tests/                      Unit, integration, and browser tests when added
 ```
 
-The user-facing term is **Post**. Some internal names such as `submit-page`, `scan-service`, `scan_event`, and the `#/sort` route remain because a post is backed by a recycling scan attempt. Rename those only as a coordinated contract migration.
+The user-facing term is **Post**. Some temporary internal names such as `submit-page`, `scan-service`, and the compatibility route `#/sort` predate the Home-based daily-task flow. New contracts and integrations should use task/submission terminology.
 
 ## Validate changes
 
@@ -121,7 +122,7 @@ The user-facing term is **Post**. Some internal names such as `submit-page`, `sc
 npm.cmd test
 ```
 
-This runs Stylelint and creates a production Vite build. Other commands are:
+This runs the domain regression tests, Stylelint, and a production Vite build. Other commands are:
 
 | Command | Purpose |
 |---|---|
@@ -129,12 +130,12 @@ This runs Stylelint and creates a production Vite build. Other commands are:
 | `npm.cmd run build` | Create an optimized build in `dist/` |
 | `npm.cmd run preview` | Serve `dist/` on port 4173 |
 | `npm.cmd run lint:styles` | Lint all Sass files |
-| `npm.cmd test` | Run style linting and the production build |
+| `npm.cmd test` | Run domain tests, style linting, and the production build |
 
 ## Integration rules
 
-- VLM credentials must stay in a Supabase Edge Function; never expose them in client JavaScript or `VITE_*` variables.
-- Item photos remain private by default. A profile post currently exposes only a disposal summary, not the image.
+- Evidence-analysis credentials must stay in a Supabase Edge Function; never expose them in client JavaScript or `VITE_*` variables.
+- Task evidence photos remain private by default. A profile post currently exposes only a task summary, not the image.
 - The backend owns canonical points, daily limits, membership, streaks, and unlocks.
 - Keep mock responses aligned with [CONTRACTS.md](./CONTRACTS.md) while real services are developed.
 - See [DEVPLAN.md](./DEVPLAN.md) for product priorities, ownership, milestones, and remaining work.
@@ -143,6 +144,6 @@ This runs Stylelint and creates a production Vite build. Other commands are:
 
 - **Person 1 - Backend:** Supabase schema/RLS/Storage, Edge Functions, VLM adapter, scoring, quotas, streaks, and backend tests.
 - **Person 2 - Frontend platform:** application bootstrap, shared router/layouts/components/styles, authentication integration, settings, and global accessibility/session behavior.
-- **Person 3 (Irfan) - Product pages:** dashboard, Create Post flow, result, crew, activity, invitations, league, cosmetics, profile pages, feature-specific styling, and end-to-end user journeys.
+- **Person 3 (Irfan) - Product pages:** Home task flow, result, crew, activity, invitations, league, cosmetics, profile pages, feature-specific styling, and end-to-end user journeys.
 
 Coordinate changes to shared routing, global Sass, and API shapes with the relevant owners before merging.

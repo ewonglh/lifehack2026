@@ -1,6 +1,54 @@
-import { cosmetics, crew, dailyTasks, demoScan, profile } from './mock-data.js';
+import { cosmetics, crew, dailyTasks, demoScan, leagues, profile } from './mock-data.js';
 
 const storageKey = 'ecocrew-demo-state';
+const maximumCrewMembers = 8;
+
+function isObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function nonNegativeInteger(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : fallback;
+}
+
+function crewMemberCount(value, fallback = 1) {
+  return Math.min(maximumCrewMembers, Math.max(1, nonNegativeInteger(value, fallback)));
+}
+
+function cosmeticIsUnlocked(item, completedTaskCount) {
+  return item.unlocked || (item.id === 'mushroom-frame' && completedTaskCount >= 2);
+}
+
+function normalizeCrewMembership(value) {
+  if (!isObject(value) || !['owner', 'member'].includes(value.role)) return null;
+  const crewName = typeof value.crewName === 'string' ? value.crewName.trim() : '';
+  if (crewName.length < 3 || crewName.length > 40) return null;
+  return {
+    ...value,
+    crewName,
+    inviteCode: typeof value.inviteCode === 'string' ? value.inviteCode.trim().toUpperCase() : '',
+    memberCount: crewMemberCount(value.memberCount, value.role === 'owner' ? 1 : crew.members.length),
+  };
+}
+
+function normalizeLeagueMembership(value, membership) {
+  if (!isObject(value) || !membership) return null;
+  const league = leagues.find((item) => item.id === value.leagueId || item.name === value.leagueName);
+  if (!league) return null;
+  return {
+    ...value,
+    leagueId: league.id,
+    leagueName: league.name,
+    crewName: membership.crewName,
+    memberCount: membership.memberCount,
+  };
+}
+
+function normalizeResult(value) {
+  if (!isObject(value) || !isObject(value.points) || !Number.isFinite(Number(value.points.total))) return null;
+  return value;
+}
 
 function singaporeDateParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -42,6 +90,7 @@ function initialState() {
     reactions: {},
     profile: { ...profile },
     posts: [],
+    completedTaskCount: 0,
     equippedCosmeticId: cosmetics.find((item) => item.equipped)?.id || null,
     crewMembership: null,
     leagueMembership: null,
@@ -52,20 +101,54 @@ export function getDemoState() {
   let storedState;
   try {
     const parsedState = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    storedState = parsedState && typeof parsedState === 'object' && !Array.isArray(parsedState) ? parsedState : {};
+    storedState = isObject(parsedState) ? parsedState : {};
   } catch {
     storedState = {};
   }
   const state = { ...initialState(), ...storedState };
+  const stateBeforeNormalization = JSON.stringify(state);
   state.dailyCap = 1;
-  if (!state.profile || typeof state.profile !== 'object' || Array.isArray(state.profile)) state.profile = { ...profile };
-  if (!Array.isArray(state.posts)) state.posts = [];
-  if (!state.reactions || typeof state.reactions !== 'object' || Array.isArray(state.reactions)) state.reactions = {};
-  if (!cosmetics.some((item) => item.id === state.equippedCosmeticId && item.unlocked)) {
+  state.dailyScans = Math.min(state.dailyCap, nonNegativeInteger(state.dailyScans));
+  state.todayPoints = nonNegativeInteger(state.todayPoints);
+  state.weeklyLeaguePoints = nonNegativeInteger(state.weeklyLeaguePoints);
+  state.posts = Array.isArray(state.posts)
+    ? state.posts.filter(isObject).map((post, index) => ({
+      ...post,
+      id: typeof post.id === 'string' ? post.id : `post-${Date.now()}-${index}`,
+      itemName: typeof post.itemName === 'string' ? post.itemName.slice(0, 120) : 'Completed sustainability task',
+      points: nonNegativeInteger(post.points),
+      createdAt: typeof post.createdAt === 'string' ? post.createdAt : '',
+    }))
+    : [];
+  const completedPostCount = state.posts.filter((post) => post.taskId).length;
+  state.completedTaskCount = Math.max(nonNegativeInteger(state.completedTaskCount), completedPostCount);
+  const storedProfile = isObject(state.profile) ? state.profile : {};
+  state.profile = {
+    ...profile,
+    ...storedProfile,
+    name: typeof storedProfile.name === 'string' && storedProfile.name.trim() ? storedProfile.name.trim().slice(0, 40) : profile.name,
+    handle: typeof storedProfile.handle === 'string' && storedProfile.handle.length <= 30 && /^@[a-zA-Z0-9._]+$/.test(storedProfile.handle) ? storedProfile.handle : profile.handle,
+    age: Math.min(120, Math.max(13, nonNegativeInteger(storedProfile.age, profile.age))),
+    about: typeof storedProfile.about === 'string' && storedProfile.about.trim() ? storedProfile.about.trim().slice(0, 280) : profile.about,
+    totalPoints: nonNegativeInteger(storedProfile.totalPoints, profile.totalPoints),
+  };
+  delete state.profile.correctSorts;
+  state.reactions = isObject(state.reactions)
+    ? Object.fromEntries(Object.entries(state.reactions).map(([key, value]) => [key, nonNegativeInteger(value)]))
+    : {};
+  state.lastResult = normalizeResult(state.lastResult);
+  state.crewMembership = normalizeCrewMembership(state.crewMembership);
+  state.leagueMembership = normalizeLeagueMembership(state.leagueMembership, state.crewMembership);
+  if (!state.leagueMembership) state.weeklyLeaguePoints = 0;
+  if (!cosmetics.some((item) => item.id === state.equippedCosmeticId && cosmeticIsUnlocked(item, state.completedTaskCount))) {
     state.equippedCosmeticId = cosmetics.find((item) => item.equipped)?.id || null;
   }
   if (state.dailyScans === 0) state.todayPoints = 0;
-  let needsSave = !storedState.dailyTaskId;
+  let needsSave = !storedState.dailyTaskId || JSON.stringify(state) !== stateBeforeNormalization;
+  if (!dailyTasks.some((task) => task.id === state.dailyTaskId)) {
+    state.dailyTaskId = randomTaskId();
+    needsSave = true;
+  }
   if ('missionProgress' in state) {
     delete state.missionProgress;
     needsSave = true;
@@ -77,6 +160,7 @@ export function getDemoState() {
     state.dailyScans = 0;
     state.todayPoints = 0;
     state.dailyTaskId = randomTaskId();
+    state.lastResult = null;
     needsSave = true;
   }
   if (state.leagueWeekKey !== weekKey) {
@@ -105,19 +189,22 @@ export function getDailyTask() {
 
 export function completeDemoTask(task = getDailyTask()) {
   const state = getDemoState();
-  if (state.dailyScans >= state.dailyCap) return null;
+  const assignedTask = dailyTasks.find((item) => item.id === state.dailyTaskId);
+  if (state.dailyScans >= state.dailyCap || !assignedTask || task?.id !== assignedTask.id) return null;
+  task = assignedTask;
 
-  const correctBinPoints = 10;
-  const preparationPoints = 5;
+  const taskCompletionPoints = 10;
+  const evidencePoints = 5;
   const dailyBonusPoints = state.dailyScans === 0 ? 10 : 0;
-  const points = correctBinPoints + preparationPoints + dailyBonusPoints;
+  const points = taskCompletionPoints + evidencePoints + dailyBonusPoints;
+  const completedTaskCount = state.completedTaskCount + 1;
   const result = {
     ...demoScan,
     itemName: task.title,
     task,
     isCorrect: true,
-    points: { correctBin: correctBinPoints, preparation: preparationPoints, dailyBonus: dailyBonusPoints, total: points },
-    unlock: state.dailyScans === 0 ? { name: 'Leaf Frame', icon: '🌿' } : null,
+    points: { taskCompletion: taskCompletionPoints, evidence: evidencePoints, dailyBonus: dailyBonusPoints, total: points },
+    unlock: completedTaskCount === 2 ? { name: 'Mushroom Frame', icon: '🍄' } : null,
   };
   const post = { id: `post-${Date.now()}`, itemName: task.title, taskId: task.id, isCorrect: true, points, createdAt: new Date().toISOString() };
   save({
@@ -127,6 +214,7 @@ export function completeDemoTask(task = getDailyTask()) {
     weeklyLeaguePoints: state.leagueMembership ? state.weeklyLeaguePoints + points : state.weeklyLeaguePoints,
     lastResult: result,
     posts: [post, ...state.posts],
+    completedTaskCount,
     profile: { ...state.profile, totalPoints: state.profile.totalPoints + points },
   });
   return result;
@@ -138,6 +226,7 @@ export function getLastResult() {
 
 export function addReaction(activityId) {
   const state = getDemoState();
+  if (typeof activityId !== 'string' || !activityId) return null;
   const reactions = { ...state.reactions, [activityId]: (state.reactions[activityId] || 0) + 1 };
   return save({ ...state, reactions });
 }
@@ -146,7 +235,14 @@ export function getDemoProfile() { return getDemoState().profile; }
 
 export function updateDemoProfile(updates) {
   const state = getDemoState();
-  return save({ ...state, profile: { ...state.profile, ...updates } }).profile;
+  if (!isObject(updates)) return null;
+  const name = String(updates.name ?? state.profile.name).trim();
+  const handle = String(updates.handle ?? state.profile.handle).trim();
+  const about = String(updates.about ?? state.profile.about).trim();
+  const age = Number(updates.age ?? state.profile.age);
+  if (!name || name.length > 40 || !/^@[a-zA-Z0-9._]+$/.test(handle) || handle.length > 30 || !about || about.length > 280 || !Number.isInteger(age) || age < 13 || age > 120) return null;
+  const nextProfile = { ...state.profile, name, handle, about, age };
+  return save({ ...state, profile: nextProfile }).profile;
 }
 
 export function getDemoPosts() { return getDemoState().posts; }
@@ -156,7 +252,7 @@ export function getCrewMembership() { return getDemoState().crewMembership; }
 export function getCrewMemberCount() {
   const membership = getCrewMembership();
   if (!membership) return 0;
-  return Math.max(1, Number(membership.memberCount) || (membership.role === 'owner' ? 1 : crew.members.length));
+  return crewMemberCount(membership.memberCount, membership.role === 'owner' ? 1 : crew.members.length);
 }
 
 export function getLeagueMembership() { return getDemoState().leagueMembership; }
@@ -164,17 +260,23 @@ export function getLeagueMembership() { return getDemoState().leagueMembership; 
 export function getLeagueAveragePoints() {
   const state = getDemoState();
   if (!state.leagueMembership) return null;
-  const memberCount = Math.max(1, Number(state.leagueMembership.memberCount) || 1);
+  const memberCount = crewMemberCount(state.leagueMembership.memberCount);
   return Math.round(state.weeklyLeaguePoints / memberCount);
 }
 
 export function getDemoCosmetics() {
-  const equippedId = getDemoState().equippedCosmeticId || cosmetics.find((item) => item.equipped)?.id;
-  return cosmetics.map((item) => ({ ...item, equipped: item.id === equippedId }));
+  const state = getDemoState();
+  const equippedId = state.equippedCosmeticId || cosmetics.find((item) => item.equipped)?.id;
+  const completedTaskCount = state.completedTaskCount;
+  return cosmetics.map((item) => {
+    const unlocked = cosmeticIsUnlocked(item, completedTaskCount);
+    const remaining = Math.max(0, 2 - completedTaskCount);
+    return { ...item, unlocked, equipped: unlocked && item.id === equippedId, progress: item.id === 'mushroom-frame' && !unlocked ? `${remaining} more completed task${remaining === 1 ? '' : 's'}` : item.progress };
+  });
 }
 
 export function equipDemoCosmetic(cosmeticId) {
-  const cosmetic = cosmetics.find((item) => item.id === cosmeticId);
+  const cosmetic = getDemoCosmetics().find((item) => item.id === cosmeticId);
   if (!cosmetic?.unlocked) return null;
   const state = getDemoState();
   save({ ...state, equippedCosmeticId: cosmeticId });
@@ -183,9 +285,11 @@ export function equipDemoCosmetic(cosmeticId) {
 
 export function joinDemoCrew(inviteCode) {
   const state = getDemoState();
+  const normalizedInviteCode = typeof inviteCode === 'string' ? inviteCode.trim().toUpperCase() : '';
+  if (state.crewMembership || normalizedInviteCode.length < 3 || normalizedInviteCode.length > 40) return null;
   const membership = {
     crewName: crew.name,
-    inviteCode: inviteCode.trim().toUpperCase(),
+    inviteCode: normalizedInviteCode,
     role: 'member',
     memberCount: crew.members.length,
     joinedAt: new Date().toISOString(),
@@ -196,9 +300,11 @@ export function joinDemoCrew(inviteCode) {
 
 export function createDemoCrew(crewName) {
   const state = getDemoState();
+  const normalizedCrewName = typeof crewName === 'string' ? crewName.trim() : '';
+  if (state.crewMembership || normalizedCrewName.length < 3 || normalizedCrewName.length > 40) return null;
   const membership = {
-    crewName: crewName.trim(),
-    inviteCode: crewName.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'MY-CREW',
+    crewName: normalizedCrewName,
+    inviteCode: normalizedCrewName.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'MY-CREW',
     role: 'owner',
     memberCount: 1,
     joinedAt: new Date().toISOString(),
@@ -207,13 +313,25 @@ export function createDemoCrew(crewName) {
   return membership;
 }
 
-export function joinDemoLeague() {
+export function addDemoCrewMember() {
+  const state = getDemoState();
+  if (state.crewMembership?.role !== 'owner' || getCrewMemberCount() >= maximumCrewMembers) return null;
+  const memberCount = getCrewMemberCount() + 1;
+  const crewMembership = { ...state.crewMembership, memberCount };
+  const leagueMembership = state.leagueMembership ? { ...state.leagueMembership, memberCount } : null;
+  save({ ...state, crewMembership, leagueMembership });
+  return crewMembership;
+}
+
+export function joinDemoLeague(leagueId) {
   const state = getDemoState();
   const memberCount = getCrewMemberCount();
-  if (state.crewMembership?.role !== 'owner' || memberCount < crew.league.minimumMembers) return null;
+  const league = leagues.find((item) => item.id === leagueId);
+  if (!league || state.leagueMembership || state.crewMembership?.role !== 'owner' || memberCount < league.minimumMembers) return null;
 
   const leagueMembership = {
-    leagueName: crew.league.name,
+    leagueId: league.id,
+    leagueName: league.name,
     crewName: state.crewMembership.crewName,
     memberCount,
     joinedAt: new Date().toISOString(),
@@ -224,7 +342,7 @@ export function joinDemoLeague() {
 
 export function leaveDemoLeague() {
   const state = getDemoState();
-  if (!state.leagueMembership) return false;
+  if (!state.leagueMembership || state.crewMembership?.role !== 'owner') return false;
   save({ ...state, leagueMembership: null, weeklyLeaguePoints: 0 });
   return true;
 }

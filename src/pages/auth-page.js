@@ -30,7 +30,7 @@ function authMarkup(isRegister) {
 }
 
 export function renderAuthPage() {
-  const isRegister = window.location.hash.slice(1) === '/register';
+  const isRegister = window.location.hash.slice(1).split('?')[0] === '/register';
   const container = document.createElement('div');
   container.innerHTML = authMarkup(isRegister);
   const page = container.firstElementChild;

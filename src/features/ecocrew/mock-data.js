@@ -38,29 +38,49 @@ export const crew = {
     { name: 'Maya', initials: 'M', tone: 'coral' },
     { name: 'Noah', initials: 'N', tone: 'sky' },
   ],
-  league: { name: 'NUS League', rank: 4, total: 12, minimumMembers: 3 },
   streak: 4,
-  repairTokens: 1,
 };
 
 export const activity = [
-  { id: 'maya', actor: 'Maya', action: 'sorted a glass pasta jar correctly', time: '18 min ago', reactions: 4, emoji: '✨' },
-  { id: 'noah', actor: 'Noah', action: 'helped protect the crew streak', time: '2 hr ago', reactions: 3, emoji: '🔥' },
+  { id: 'maya', actor: 'Maya', action: 'watered a plant and shared photo evidence', time: '18 min ago', reactions: 4, emoji: '✨' },
+  { id: 'noah', actor: 'Noah', action: 'used a reusable cup and protected the crew streak', time: '2 hr ago', reactions: 3, emoji: '🔥' },
   { id: 'irfan', actor: 'Irfan', action: 'unlocked the Leaf Frame', time: 'Yesterday', reactions: 6, emoji: '🌿' },
 ];
 
-export const leagueRows = [
-  { rank: 1, name: 'School of Computing', score: 910, trend: 'up' },
-  { rank: 2, name: 'College of Design and Engineering', score: 835, trend: 'up' },
-  { rank: 3, name: 'Faculty of Science', score: 790, trend: 'down' },
-  { rank: 4, name: 'Glass Guardians', score: 745, trend: 'you' },
-  { rank: 5, name: 'NUS Business School', score: 710, trend: 'up' },
+export const leagues = [
+  {
+    id: 'nus',
+    name: 'NUS League',
+    total: 12,
+    minimumMembers: 3,
+    rows: [
+      { rank: 1, name: 'School of Computing', score: 910, trend: 'up' },
+      { rank: 2, name: 'College of Design and Engineering', score: 835, trend: 'up' },
+      { rank: 3, name: 'Faculty of Science', score: 790, trend: 'down' },
+      { rank: 4, name: 'Glass Guardians', score: 745, trend: 'you' },
+      { rank: 5, name: 'NUS Business School', score: 710, trend: 'up' },
+    ],
+  },
+  {
+    id: 'sutd',
+    name: 'SUTD League',
+    total: 10,
+    minimumMembers: 3,
+    rows: [
+      { rank: 1, name: 'Block 51', score: 895, trend: 'up' },
+      { rank: 2, name: 'Block 53', score: 840, trend: 'up' },
+      { rank: 3, name: 'Block 55', score: 780, trend: 'down' },
+      { rank: 4, name: 'Glass Guardians', score: 745, trend: 'you' },
+      { rank: 5, name: 'Block 57', score: 705, trend: 'up' },
+      { rank: 6, name: 'Block 59', score: 650, trend: 'down' },
+    ],
+  },
 ];
 
 export const cosmetics = [
   { id: 'leaf-frame', name: 'Leaf Frame', icon: '🌿', unlocked: true, equipped: true },
   { id: 'sunny-badge', name: 'Sunny Badge', icon: '☀️', unlocked: true, equipped: false },
-  { id: 'mushroom-frame', name: 'Mushroom Frame', icon: '🍄', unlocked: false, progress: '2 more correct sorts' },
+  { id: 'mushroom-frame', name: 'Mushroom Frame', icon: '🍄', unlocked: false, progress: '2 more completed tasks' },
 ];
 
 export const profile = {
@@ -71,7 +91,6 @@ export const profile = {
   location: 'Singapore',
   joinedLabel: 'EcoCrew member since August 2026',
   totalPoints: 1280,
-  correctSorts: 42,
   longestStreak: 8,
   avatar: 'I',
 };

@@ -1,6 +1,7 @@
 import { activity, crew } from '../features/ecocrew/mock-data.js';
 import {
   addReaction,
+  addDemoCrewMember,
   createDemoCrew,
   deleteDemoCrew,
   getCrewMembership,
@@ -55,15 +56,19 @@ function emptyCrew() {
 function crewContent(state, membership) {
   const profile = getDemoProfile();
   const isCreatedCrew = membership.role === 'owner';
+  const memberCount = Math.max(1, Number(membership.memberCount) || 1);
   const members = isCreatedCrew
-    ? [{ name: profile.name, initials: profile.name.charAt(0).toUpperCase(), tone: 'moss' }]
-    : crew.members;
+    ? [
+      { name: profile.name, initials: profile.name.charAt(0).toUpperCase(), tone: 'moss' },
+      ...Array.from({ length: memberCount - 1 }, (_, index) => crew.members[index + 1] || { name: `Member ${index + 2}`, initials: String(index + 2), tone: 'sky' }),
+    ]
+    : crew.members.map((member) => member.name === 'Irfan' ? { ...member, name: profile.name, initials: profile.name.charAt(0).toUpperCase() } : member);
   return `
     <section class="ecocrew-crew-section" aria-labelledby="your-crew-title">
       <div class="ecocrew-crew-title-row"><div><p class="ecocrew-kicker">YOUR CREW</p><h2 id="your-crew-title">${escapeHtml(membership.crewName)}</h2><small>${escapeHtml(membership.role === 'owner' ? 'You created this crew' : 'Joined with invite code')}</small></div>${isCreatedCrew ? '<button class="btn ecocrew-delete-crew" type="button" data-delete-crew><i class="bi bi-trash3" aria-hidden="true"></i> Delete crew</button>' : '<button class="btn ecocrew-delete-crew" type="button" data-leave-crew>Leave crew</button>'}</div>
-      <div class="ecocrew-crew-hero"><div class="ecocrew-member-stack">${members.map((member) => `<span class="ecocrew-avatar ecocrew-avatar--${member.tone}" title="${escapeHtml(member.name)}">${escapeHtml(member.initials)}</span>`).join('')}</div><div><strong>${members.length} member${members.length === 1 ? '' : 's'} · ${crew.streak}-day streak 🔥</strong><p>One more contribution protects today’s streak.</p></div>${inviteDropdown()}</div>
+      <div class="ecocrew-crew-hero"><div class="ecocrew-member-stack">${members.map((member) => `<span class="ecocrew-avatar ecocrew-avatar--${member.tone}" title="${escapeHtml(member.name)}">${escapeHtml(member.initials)}</span>`).join('')}</div><div><strong>${members.length} member${members.length === 1 ? '' : 's'} · ${crew.streak}-day streak 🔥</strong><p>One more contribution protects today’s streak.</p></div><div class="ecocrew-crew-member-actions">${inviteDropdown()}${isCreatedCrew && memberCount < 8 ? '<button class="btn ecocrew-btn-secondary" type="button" data-add-demo-member>Add demo member</button>' : ''}</div></div>
     </section>
-    <section class="ecocrew-feed"><div class="ecocrew-section-heading"><h2>Crew activity</h2><span>Celebrate milestones</span></div>${activity.map((entry) => `<article class="ecocrew-feed-item"><span class="ecocrew-feed-item__emoji" aria-hidden="true">${entry.emoji}</span><div><p><strong>${entry.actor}</strong> ${entry.action}</p><small>${entry.time}</small><button class="btn btn-sm" data-reaction="${entry.id}">👏 ${entry.reactions + (state.reactions[entry.id] || 0)}</button></div></article>`).join('')}</section>`;
+    <section class="ecocrew-feed"><div class="ecocrew-section-heading"><h2>Crew activity</h2><span>Celebrate milestones</span></div>${activity.map((entry) => `<article class="ecocrew-feed-item"><span class="ecocrew-feed-item__emoji" aria-hidden="true">${entry.emoji}</span><div><p><strong>${escapeHtml(entry.id === 'irfan' ? profile.name : entry.actor)}</strong> ${entry.action}</p><small>${entry.time}</small><button class="btn btn-sm" data-reaction="${entry.id}">👏 ${entry.reactions + (state.reactions[entry.id] || 0)}</button></div></article>`).join('')}</section>`;
 }
 
 async function copyInviteLink(link, status) {
@@ -116,9 +121,12 @@ export function renderFriendsPage() {
         form.reportValidity();
         return;
       }
-      const value = new FormData(form).get('value');
-      if (form.dataset.crewForm === 'join') joinDemoCrew(value);
-      else createDemoCrew(value);
+      const value = String(new FormData(form).get('value') || '').trim();
+      const membershipResult = form.dataset.crewForm === 'join' ? joinDemoCrew(value) : createDemoCrew(value);
+      if (!membershipResult) {
+        form.querySelector('.ecocrew-form-error').hidden = false;
+        return;
+      }
       navigate('/crew');
     });
   }
@@ -148,6 +156,9 @@ export function renderFriendsPage() {
   page.querySelector('[data-leave-crew]')?.addEventListener('click', () => {
     const confirmed = window.confirm(`Leave ${membership.crewName}?`);
     if (confirmed && leaveDemoCrew()) navigate('/crew');
+  });
+  page.querySelector('[data-add-demo-member]')?.addEventListener('click', () => {
+    if (addDemoCrewMember()) navigate('/crew');
   });
   if (membership) bindShareMenu(page, membership);
   return page;
