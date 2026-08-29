@@ -502,6 +502,70 @@ begin
 
   if not exists (
     select 1
+    from public.leagues
+    where id = 'c0000000-0000-4000-8000-000000000001'
+      and owner_squad_id = 'b0000000-0000-4000-8000-000000000001'
+      and name = 'Glass Guardians Weekly League'
+      and starts_at = v_week_start_at
+      and ends_at = v_week_start_at + interval '7 days'
+      and max_squads = 5
+      and status = 'active'
+      and week_key = v_week_start
+  ) then
+    raise exception 'Seed assertion failed: current Glass Guardians league is missing';
+  end if;
+  if (
+    select count(*)
+    from public.league_entries
+    where league_id = 'c0000000-0000-4000-8000-000000000001'
+  ) <> 5 then
+    raise exception 'Seed assertion failed: current league entries are incomplete';
+  end if;
+  if not exists (
+    select 1
+    from public.league_entries
+    where league_id = 'c0000000-0000-4000-8000-000000000001'
+      and squad_id = 'b0000000-0000-4000-8000-000000000001'
+      and score = 745
+  ) then
+    raise exception 'Seed assertion failed: Glass Guardians league entry is missing';
+  end if;
+  if exists (
+    select 1
+    from public.league_entries as entry
+    left join public.squads as squad on squad.id = entry.squad_id
+    where entry.league_id = 'c0000000-0000-4000-8000-000000000001'
+      and squad.id is null
+  ) then
+    raise exception 'Seed assertion failed: current league has an unknown crew';
+  end if;
+  if (
+    select count(*)
+    from public.activity_events
+    where id in (
+      'd3000000-0000-4000-8000-000000000001',
+      'd3000000-0000-4000-8000-000000000002',
+      'd3000000-0000-4000-8000-000000000003'
+    )
+      and squad_id = 'b0000000-0000-4000-8000-000000000001'
+  ) <> 3 then
+    raise exception 'Seed assertion failed: Glass Guardians activity messages are incomplete';
+  end if;
+  if exists (
+    select 1
+    from public.activity_events
+    where squad_id in (
+      'b0000000-0000-4000-8000-000000000002',
+      'b0000000-0000-4000-8000-000000000003',
+      'b0000000-0000-4000-8000-000000000004',
+      'b0000000-0000-4000-8000-000000000005'
+    )
+  ) then
+    raise exception 'Seed assertion failed: fixture activity leaked outside Glass Guardians';
+  end if;
+
+  if not exists (
+    select 1
     from public.squads
     where id = 'b0000000-0000-4000-8000-000000000001'
       and name = 'Glass Guardians'

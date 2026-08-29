@@ -1,5 +1,10 @@
 import { ecoCrewService } from '../services/ecocrew-service.js';
-import { appShell, navigate as defaultNavigate } from '../features/ecocrew/page-utils.js';
+import { cosmeticVisual } from '../components/cosmetic-visual.js';
+import {
+  appShell,
+  escapeHtml,
+  navigate as defaultNavigate,
+} from '../features/ecocrew/page-utils.js';
 
 const failureCopy = {
   liquid_present: {
@@ -59,7 +64,7 @@ export function renderSubmissionDetailPage({ navigate = defaultNavigate, params 
     '<section class="ecocrew-result" data-result-card><div class="ecocrew-result__burst" data-result-icon aria-hidden="true">✦</div><p class="ecocrew-kicker" data-result-kicker>RESULT</p><h2 data-result-title>Checking your action…</h2><p data-result-summary>We’re loading your bottle guidance.</p><p class="ecocrew-muted" data-result-task hidden></p></section>' +
       '<section class="ecocrew-card ecocrew-action-checkin" data-action-checkin hidden><p class="ecocrew-kicker">SELF-REPORTED CHECK-IN</p><h2>Your bottle is ready.</h2><p>Your bottle is ready. Place it in recycling, then check in.</p><div class="ecocrew-actions"><button class="btn ecocrew-btn-primary" type="button" data-action="confirm">I recycled it</button><button class="btn ecocrew-btn-secondary" type="button" data-action="defer">Not yet</button></div><p class="ecocrew-muted">This check-in is self-reported. The photo helps check preparation and context; it does not prove disposal occurred.</p><p data-checkin-error class="ecocrew-form-error" role="alert" hidden></p></section>' +
       '<section class="ecocrew-card ecocrew-result-breakdown" data-result-breakdown hidden><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">DISPOSAL GUIDANCE</p><h2 data-result-bin>—</h2></div><span data-result-confidence>—</span></div><details><summary>Why this result?</summary><p data-result-reason></p></details><div class="ecocrew-tip" data-result-tip hidden><strong>Prep tip</strong><span></span></div><div class="ecocrew-points" data-result-points></div></section>' +
-      '<section class="ecocrew-unlock" data-result-unlock hidden><span aria-hidden="true">🌿</span><div><p class="ecocrew-kicker">REWARD MOMENT</p><strong data-result-unlock-title>Progress unlocked</strong><p data-result-unlock-copy></p></div></section>' +
+      '<section class="ecocrew-unlock" data-result-unlock hidden><span data-result-unlock-icon aria-hidden="true">🌿</span><div><p class="ecocrew-kicker">REWARD MOMENT</p><strong data-result-unlock-title>Progress unlocked</strong><p data-result-unlock-copy></p></div></section>' +
       '<section class="ecocrew-card ecocrew-crew-result" data-crew-result hidden><p class="ecocrew-kicker">CREW NEXT STEP</p><h2>Keep going together.</h2><p data-crew-result-copy></p></section>' +
       '<div class="ecocrew-actions"><button class="btn ecocrew-btn-primary" type="button" data-action="home">Back to home</button><button class="btn ecocrew-btn-secondary" type="button" data-action="retry" hidden>Try another photo</button><button class="btn ecocrew-btn-secondary" type="button" data-action="crew" hidden>Join or create a crew</button></div>',
     'See the bottle guidance, complete the honest self-reported check-in, and view any reward you earned.',
@@ -179,6 +184,9 @@ export function renderSubmissionDetailPage({ navigate = defaultNavigate, params 
     const unlock = page.querySelector('[data-result-unlock]');
     unlock.hidden = !isCompleted;
     if (isCompleted) {
+      page.querySelector('[data-result-unlock-icon]').innerHTML = result.unlock
+        ? cosmeticVisual(result.unlock, 'ecocrew-unlock__image')
+        : escapeHtml('🌿');
       page.querySelector('[data-result-unlock-title]').textContent =
         result.unlock?.name || 'Progress unlocked';
       page.querySelector('[data-result-unlock-copy]').textContent = result.unlock

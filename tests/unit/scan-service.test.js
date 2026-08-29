@@ -155,7 +155,7 @@ describe('demo action check-in rules', () => {
     expect(getDemoLeagueOverview()).toMatchObject({ queueStatus: 'none', canQueue: true });
     expect(leaveDemoCrew()).toBe(false);
 
-    joinDemoCrew('ABC123');
+    joinDemoCrew('ECO123');
     expect(getDemoLeagueOverview()).toMatchObject({ eligibility: 'waiting', queueStatus: 'none' });
     expect(leaveDemoCrew()).toBe(true);
     expect(getDemoLeagueOverview()).toMatchObject({ eligibility: 'no_crew', crewId: null });

@@ -1,6 +1,7 @@
 import { ecoCrewService } from '../services/ecocrew-service.js';
 import {
   appShell,
+  buildInviteUrl,
   escapeHtml,
   navigate as defaultNavigate,
   progressBar,
@@ -248,42 +249,47 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
     const status = menu.querySelector('[data-share-status]');
     menu.querySelectorAll('[data-share]').forEach((button) =>
       button.addEventListener('click', async () => {
-        const invite = await ecoCrewService.createInvite(overview.membership);
-        const inviteCode = invite.inviteCode || '';
-        const link =
-          invite.inviteUrl ||
-          window.location.origin + window.location.pathname + '#/join/' + inviteCode;
-        const message =
-          'Join my EcoCrew, ' +
-          overview.membership.crewName +
-          '! Use invite code ' +
-          inviteCode +
-          '.';
-        if (button.dataset.share === 'native' && window.navigator.share) {
-          await window.navigator.share({ title: 'Join my EcoCrew', text: message, url: link });
-          status.textContent = 'Invite ready to share.';
-          menu.open = false;
-        } else if (button.dataset.share === 'native' || button.dataset.share === 'instagram') {
-          await copyInvite(link, status);
-          if (button.dataset.share === 'instagram')
-            status.textContent = 'Link copied — paste it into Instagram.';
-        } else {
-          const urls = {
-            x:
-              'https://x.com/intent/post?text=' +
-              encodeURIComponent(message) +
-              '&url=' +
-              encodeURIComponent(link),
-            telegram:
-              'https://t.me/share/url?url=' +
-              encodeURIComponent(link) +
-              '&text=' +
-              encodeURIComponent(message),
-            whatsapp: 'https://wa.me/?text=' + encodeURIComponent(message + ' ' + link),
-          };
-          window.open(urls[button.dataset.share], '_blank', 'noopener,noreferrer');
-          status.textContent = 'Opening ' + button.textContent.trim() + '…';
-          menu.open = false;
+        try {
+          const invite = await ecoCrewService.createInvite(overview.membership);
+          const inviteCode = String(invite?.inviteCode || '')
+            .trim()
+            .toUpperCase();
+          const link = buildInviteUrl(inviteCode);
+          if (!link) throw new Error('We could not create a valid invite link.');
+          const message =
+            'Join my EcoCrew, ' +
+            overview.membership.crewName +
+            '! Use invite code ' +
+            inviteCode +
+            '.';
+          if (button.dataset.share === 'native' && window.navigator.share) {
+            await window.navigator.share({ title: 'Join my EcoCrew', text: message, url: link });
+            status.textContent = 'Invite ready to share.';
+            menu.open = false;
+          } else if (button.dataset.share === 'native' || button.dataset.share === 'instagram') {
+            await copyInvite(link, status);
+            if (button.dataset.share === 'instagram')
+              status.textContent = 'Link copied — paste it into Instagram.';
+          } else {
+            const urls = {
+              x:
+                'https://x.com/intent/post?text=' +
+                encodeURIComponent(message) +
+                '&url=' +
+                encodeURIComponent(link),
+              telegram:
+                'https://t.me/share/url?url=' +
+                encodeURIComponent(link) +
+                '&text=' +
+                encodeURIComponent(message),
+              whatsapp: 'https://wa.me/?text=' + encodeURIComponent(message + ' ' + link),
+            };
+            window.open(urls[button.dataset.share], '_blank', 'noopener,noreferrer');
+            status.textContent = 'Opening ' + button.textContent.trim() + '…';
+            menu.open = false;
+          }
+        } catch (exception) {
+          status.textContent = exception.message || 'We could not prepare the invite link.';
         }
       }),
     );

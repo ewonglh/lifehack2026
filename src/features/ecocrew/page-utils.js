@@ -1,3 +1,5 @@
+import { cosmeticVisual } from '../../components/cosmetic-visual.js';
+
 export function appShell(
   title,
   eyebrow,
@@ -9,6 +11,10 @@ export function appShell(
       .trim()
       .charAt(0)
       .toUpperCase() || 'I';
+  const avatarFrame = cosmeticVisual(
+    { id: document.body.dataset.ecocrewFrameId },
+    'ecocrew-avatar-frame',
+  );
   const page = document.createElement('main');
   page.className = 'ecocrew-page';
   page.tabIndex = -1;
@@ -24,6 +30,7 @@ export function appShell(
     '</p></div></details>' +
     '<a class="ecocrew-avatar" href="#/profile" aria-label="Your profile">' +
     avatarInitial +
+    avatarFrame +
     '</a>' +
     '</div></header>' +
     '<section class="ecocrew-page__intro"><p class="ecocrew-eyebrow">' +
@@ -69,6 +76,17 @@ export function navigate(path) {
     return;
   }
   window.location.hash = target;
+}
+
+export function buildInviteUrl(inviteCode, location = window.location) {
+  const code = String(inviteCode || '')
+    .trim()
+    .toUpperCase();
+  if (!code) return '';
+
+  const url = new window.URL(location.href);
+  url.hash = '/join/' + encodeURIComponent(code);
+  return url.toString();
 }
 
 export function progressBar(value, total, label) {

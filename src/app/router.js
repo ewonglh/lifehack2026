@@ -92,7 +92,10 @@ export function createRouter({ root, session }) {
     if (route.redirectTo) return navigate(route.redirectTo, true);
 
     try {
-      document.body.dataset.ecocrewDisplayName = current.profile?.displayName || 'I';
+      document.body.dataset.ecocrewDisplayName =
+        current.profile?.displayName || current.profile?.display_name || 'I';
+      document.body.dataset.ecocrewFrameId =
+        current.profile?.frameId || current.profile?.frame_id || '';
       await renderModernRoute({ root, route, path, current, navigate, session, params });
     } catch (exception) {
       const error = toAppError(exception);

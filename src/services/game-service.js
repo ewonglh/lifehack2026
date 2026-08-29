@@ -234,7 +234,7 @@ export const gameService = {
     const { data: events, error: eventsError } = await supabase
       .from('activity_events')
       .select(
-        'id, actor_id, event_type, payload, created_at, profiles(display_name), activity_reactions(emoji)',
+        'id, actor_id, event_type, payload, created_at, profiles!activity_events_actor_id_fkey(display_name), activity_reactions(emoji)',
       )
       .eq('squad_id', current.squadId)
       .order('created_at', { ascending: false })

@@ -98,6 +98,12 @@ describe('crew mission overview adapter', () => {
     expect(functionInvoke).toHaveBeenCalledWith('manage-mission', {
       body: { action: 'getCrew', squadId: 'squad-1' },
     });
+    const activityQuery = from.mock.results.find(
+      (result, index) => from.mock.calls[index][0] === 'activity_events',
+    ).value;
+    expect(activityQuery.select).toHaveBeenCalledWith(
+      'id, actor_id, event_type, payload, created_at, profiles!activity_events_actor_id_fkey(display_name), activity_reactions(emoji)',
+    );
     expect(from).not.toHaveBeenCalledWith('squad_daily_missions');
   });
 

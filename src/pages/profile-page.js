@@ -4,6 +4,8 @@ import {
   escapeHtml,
   navigate as defaultNavigate,
 } from '../features/ecocrew/page-utils.js';
+import { cosmeticVisual } from '../components/cosmetic-visual.js';
+import { getCosmeticAsset, getProfileFrameId } from '../features/ecocrew/cosmetic-assets.js';
 
 function postTime(dateString) {
   const timestamp = new Date(dateString || Date.now()).getTime();
@@ -15,17 +17,31 @@ function profileContent(data) {
   const profile = data.profile || {};
   const posts = data.posts || [];
   const cosmetics = data.cosmetics || [];
-  const equipped = cosmetics.find((item) => item.equipped) ||
+  const frame =
+    cosmetics.find((item) => item.kind === 'frame' && item.id === getProfileFrameId(profile)) ||
+    cosmetics.find((item) => item.kind === 'frame' && item.equipped);
+  const equipped = frame ||
     cosmetics.find((item) => item.unlocked) || { name: 'EcoCrew look', icon: '🌱' };
+  const frameAsset = getCosmeticAsset(frame?.id || getProfileFrameId(profile));
+  const accessory =
+    cosmetics.find((item) => item.kind === 'badge' && item.equipped) || (!frame ? equipped : null);
   const name = profile.displayName || 'EcoCrew member';
   return (
     '<div data-profile-content><section class="ecocrew-profile-hero"><div class="ecocrew-profile-avatar" aria-label="' +
     escapeHtml(name) +
     '\'s profile avatar">' +
     escapeHtml(name.charAt(0).toUpperCase()) +
-    '<span aria-hidden="true">' +
-    escapeHtml(equipped.icon || '🌱') +
-    '</span></div><div><h2>' +
+    (frameAsset
+      ? '<img class="ecocrew-profile-frame" src="' +
+        escapeHtml(frameAsset) +
+        '" alt="" aria-hidden="true">'
+      : '') +
+    (accessory
+      ? '<span aria-hidden="true">' +
+        cosmeticVisual(accessory, 'ecocrew-cosmetic-visual') +
+        '</span>'
+      : '') +
+    '</div><div><h2>' +
     escapeHtml(name) +
     '</h2><p>' +
     escapeHtml(profile.handle || '') +
@@ -66,7 +82,7 @@ function profileContent(data) {
           '" aria-pressed="' +
           (item.equipped ? 'true' : 'false') +
           '">' +
-          escapeHtml(item.icon || '✦') +
+          cosmeticVisual(item, 'ecocrew-cosmetic-visual') +
           '</button>',
       )
       .join('') +

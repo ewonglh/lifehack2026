@@ -370,12 +370,14 @@ export const ecoCrewService = {
       current.league?.leagues ??
       leagues[0];
     const entries = activeLeague?.league_entries ?? [];
-    const rows = entries.map((entry, index) => ({
-      rank: entry.final_rank ?? index + 1,
-      name: entry.squads?.name ?? entry.squad_name ?? 'EcoCrew',
-      score: Number(entry.score ?? 0),
-      trend: entry.squad_id === current.squadId ? 'you' : 'up',
-    }));
+    const rows = entries
+      .map((entry) => ({
+        name: entry.squads?.name ?? entry.squad_name ?? 'EcoCrew',
+        score: Number(entry.score ?? 0),
+        trend: entry.squad_id === current.squadId ? 'you' : 'up',
+      }))
+      .sort((first, second) => second.score - first.score || first.name.localeCompare(second.name))
+      .map((row, index) => ({ ...row, rank: index + 1 }));
     const own = rows.find((row) => row.trend === 'you');
     return {
       eligibility: own ? 'ranked' : 'unranked',

@@ -53,7 +53,7 @@ describe('crew page membership actions', () => {
     createCrew.mockReset().mockResolvedValue({ crewId: 'crew-1' });
     joinCrew.mockReset().mockResolvedValue({ crewId: 'crew-1' });
     leaveCrew.mockReset().mockResolvedValue(true);
-    createInvite.mockReset().mockResolvedValue({ inviteCode: 'ABC123' });
+    createInvite.mockReset().mockResolvedValue({ inviteCode: 'ECO123', inviteUrl: '#/crew' });
     window.confirm = vi.fn().mockReturnValue(true);
     window.open = vi.fn();
   });
@@ -78,10 +78,10 @@ describe('crew page membership actions', () => {
 
     rendered.element.querySelector('[data-membership-action="join"]').click();
     const form = rendered.element.querySelector('[data-crew-form="join"]');
-    form.querySelector('input').value = 'ABC123';
+    form.querySelector('input').value = 'ECO123';
     form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
 
-    await vi.waitFor(() => expect(joinCrew).toHaveBeenCalledWith('ABC123'));
+    await vi.waitFor(() => expect(joinCrew).toHaveBeenCalledWith('ECO123'));
   });
 
   it('does not render mission errors for a user without a crew', async () => {
@@ -155,7 +155,7 @@ describe('crew page membership actions', () => {
     rendered.element.querySelector('[data-share="x"]').click();
     await vi.waitFor(() => expect(window.open).toHaveBeenCalled());
     const sharedUrl = window.open.mock.calls[0][0];
-    expect(sharedUrl).toContain('ABC123');
-    expect(sharedUrl).toContain('%23%2Fjoin%2FABC123');
+    expect(sharedUrl).toContain('ECO123');
+    expect(sharedUrl).toContain('%23%2Fjoin%2FECO123');
   });
 });

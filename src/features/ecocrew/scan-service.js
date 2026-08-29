@@ -1,7 +1,9 @@
 import { activity, cosmetics, crew, demoScans, demoScan, demoTask, profile } from './mock-data.js';
+import { buildInviteUrl } from './page-utils.js';
 
 const storageKey = 'ecocrew-demo-state';
 const dailyPointsCap = 75;
+export const demoInviteCode = 'ECO123';
 
 function singaporeDateKey(date = new Date()) {
   const dateParts = new Intl.DateTimeFormat('en-US', {
@@ -39,6 +41,7 @@ function initialState() {
     submissionResults: {},
     reactions: {},
     profile: { ...profile },
+    cosmetics: cosmetics.map((item) => ({ ...item })),
     posts: [],
     crewMembership: null,
     leagueQueueStatus: 'none',
@@ -241,7 +244,10 @@ function awardDemoResult(state, pending) {
       ...crew,
       mission: { ...crew.mission, progress: missionProgress },
     },
-    unlock: state.dailyScans === 0 ? { name: 'Leaf Frame', icon: '🌿' } : null,
+    unlock:
+      state.dailyScans === 0
+        ? { cosmeticId: 'leaf-frame', kind: 'frame', name: 'Leaf Frame', icon: '🌿' }
+        : null,
   };
   return {
     state: {
@@ -376,13 +382,10 @@ export function createDemoCrew(crewName) {
 
 export function createDemoInvite() {
   const membership = getCrewMembership();
+  const inviteCode = membership?.inviteCode || demoInviteCode;
   return {
-    inviteCode: membership?.inviteCode || 'ECO123',
-    inviteUrl:
-      window.location.origin +
-      window.location.pathname +
-      '#/join/' +
-      (membership?.inviteCode || 'ECO123'),
+    inviteCode,
+    inviteUrl: buildInviteUrl(inviteCode),
   };
 }
 
@@ -477,11 +480,21 @@ export function getDemoLeagueOverview() {
 }
 
 export function getDemoCosmetics() {
-  return cosmetics.map((item) => ({ ...item }));
+  return getDemoState().cosmetics.map((item) => ({ ...item }));
 }
 
 export function equipDemoCosmetic(cosmeticId) {
-  return getDemoCosmetics().find((item) => item.id === cosmeticId) || null;
+  const state = getDemoState();
+  const selected = state.cosmetics.find((item) => item.id === cosmeticId);
+  if (!selected || selected.unlocked === false) return null;
+  const nextCosmetics = state.cosmetics.map((item) =>
+    item.kind === selected.kind ? { ...item, equipped: item.id === cosmeticId } : item,
+  );
+  const nextProfile = { ...state.profile };
+  if (selected.kind === 'frame') nextProfile.frameId = selected.id;
+  if (selected.kind === 'avatar') nextProfile.avatarId = selected.id;
+  save({ ...state, cosmetics: nextCosmetics, profile: nextProfile });
+  return nextCosmetics.find((item) => item.id === cosmeticId) || null;
 }
 
 export function getLeagueResetLabel() {

@@ -1,5 +1,6 @@
 import { ecoCrewService } from '../services/ecocrew-service.js';
 import Modal from 'bootstrap/js/dist/modal';
+import { cosmeticVisual } from '../components/cosmetic-visual.js';
 import {
   appShell,
   escapeHtml,
@@ -37,7 +38,7 @@ function collection(items) {
         '<article class="ecocrew-cosmetic ' +
         (item.unlocked ? '' : 'is-locked') +
         '"><span aria-hidden="true">' +
-        escapeHtml(item.icon || '✦') +
+        cosmeticVisual(item, 'ecocrew-cosmetic-visual') +
         '</span><strong>' +
         escapeHtml(item.name || 'Eco cosmetic') +
         '</strong><small>' +
