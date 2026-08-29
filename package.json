@@ -23,7 +23,8 @@
     "@popperjs/core": "^2.11.8",
     "@supabase/supabase-js": "^2.97.0",
     "bootstrap": "^5.3.8",
-    "bootstrap-icons": "^1.13.1"
+    "bootstrap-icons": "^1.13.1",
+    "supabase": "^2.116.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

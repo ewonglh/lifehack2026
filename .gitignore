@@ -28,6 +28,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Editors and operating systems
+.codex/
 .vscode/
 .idea/
 .DS_Store
