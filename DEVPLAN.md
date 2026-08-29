@@ -116,7 +116,7 @@ Use a daily cap for repeat scan points. This keeps the game fair and focuses it 
 
 ### 8.1 Proposed stack
 
-- **Frontend:** React + TypeScript + Vite or Next.js; Tailwind CSS and a small animation library.
+- **Frontend:** JavaScript, Vite, Bootstrap, and Sass; Tailwind CSS and a small animation library.
 - **Backend services:** Supabase Auth, Postgres, Row Level Security, Storage, and Edge Functions.
 - **Vision:** VLM called from an Edge Function so API credentials are never exposed in the browser.
 - **State/data fetching:** TanStack Query or equivalent; optimistic updates for scan completion and reactions.
