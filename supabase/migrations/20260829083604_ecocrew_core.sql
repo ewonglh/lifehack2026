@@ -1,0 +1,5 @@
+-- Production baseline marker.
+-- The authoritative SQL is the already-applied `ecocrew_core` migration from
+-- commit dcb0c572a9a7cf19fc974a08a43e6e0662df599a. Do not run this marker on
+-- a new database; use that committed migration as the bootstrap source.
+-- This filename matches the migration recorded in the linked Supabase project.

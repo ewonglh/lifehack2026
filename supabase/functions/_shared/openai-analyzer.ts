@@ -17,6 +17,9 @@ const classificationSchema = {
     confidence: { type: 'number', minimum: 0, maximum: 1 },
     localeRuleVersion: { type: 'string' },
     explanation: { type: ['string', 'null'] },
+    matchesTask: { type: 'boolean' },
+    taskConfidence: { type: 'number', minimum: 0, maximum: 1 },
+    taskReason: { type: ['string', 'null'] },
   },
   required: [
     'itemName',
@@ -26,6 +29,9 @@ const classificationSchema = {
     'confidence',
     'localeRuleVersion',
     'explanation',
+    'matchesTask',
+    'taskConfidence',
+    'taskReason',
   ],
   additionalProperties: false,
 };
@@ -73,14 +79,14 @@ export async function analyzeWithOpenAI(input: PhotoInput): Promise<Classificati
       model: Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini',
       store: false,
       instructions:
-        'Classify one household item for disposal. Be conservative: use unknown when the image or local rule is unclear. Never infer certainty from the user-selected bin.',
+        'Classify one household item for disposal and validate it against the supplied task. Be strict: matchesTask is true only when the image clearly shows the requested object/material and supports the requested action. Use unknown and matchesTask false when the image or local rule is unclear. Never infer certainty from the user-selected bin.',
       input: [
         {
           role: 'user',
           content: [
             {
               type: 'input_text',
-              text: `Locale: ${input.locale}. Rule version: ${input.localeRuleVersion}. Analyze this item.`,
+              text: `Locale: ${input.locale}. Rule version: ${input.localeRuleVersion}. ${input.task ? `Task: ${input.task.prompt}. Target object: ${input.task.targetObject}. Target material: ${input.task.targetMaterial ?? 'not specified'}. Target action: ${input.task.targetAction}. Additional validation metadata: ${JSON.stringify(input.task.validationMetadata ?? {})}.` : 'No task was supplied; classify the item only.'}`,
             },
             {
               type: 'input_image',

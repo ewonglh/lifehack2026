@@ -10,6 +10,9 @@ export type ClassificationResult = {
   confidence: number;
   localeRuleVersion: string;
   explanation: string | null;
+  matchesTask?: boolean;
+  taskConfidence?: number;
+  taskReason?: string | null;
 };
 
 export type PhotoInput = {
@@ -17,7 +20,14 @@ export type PhotoInput = {
   contentType: string;
   locale: string;
   localeRuleVersion: string;
-  imagePath: string;
+  imagePath?: string;
+  task?: {
+    prompt: string;
+    targetObject: string;
+    targetMaterial: string | null;
+    targetAction: string;
+    validationMetadata?: Record<string, unknown>;
+  };
 };
 
 const demoClassification: ClassificationResult = {
@@ -32,7 +42,19 @@ const demoClassification: ClassificationResult = {
 
 export async function analyzePhoto(input: PhotoInput): Promise<ClassificationResult> {
   const isMocked = Deno.env.get('MOCK_VLM') === 'true' || !Deno.env.get('OPENAI_API_KEY');
-  if (isMocked) return { ...demoClassification, localeRuleVersion: input.localeRuleVersion };
+  if (isMocked) {
+    const task = input.task;
+    return {
+      ...demoClassification,
+      itemName: task?.targetObject ?? demoClassification.itemName,
+      material: task?.targetMaterial ?? demoClassification.material,
+      recommendedBin: (task?.targetAction as ClassificationResult['recommendedBin']) ?? demoClassification.recommendedBin,
+      localeRuleVersion: input.localeRuleVersion,
+      matchesTask: Boolean(task),
+      taskConfidence: task ? 0.95 : 0,
+      taskReason: task ? `Demo classifier matched ${task.prompt}.` : null,
+    };
+  }
 
   try {
     return await analyzeWithOpenAI(input);
@@ -65,6 +87,16 @@ export function validateClassification(value: unknown): ClassificationResult {
     !(candidate.explanation === null || typeof candidate.explanation === 'string')
   ) {
     throw new Error('The model returned an invalid classification.');
+  }
+  if (
+    candidate.matchesTask !== undefined &&
+    (typeof candidate.matchesTask !== 'boolean' ||
+      typeof candidate.taskConfidence !== 'number' ||
+      candidate.taskConfidence < 0 ||
+      candidate.taskConfidence > 1 ||
+      !(candidate.taskReason === null || typeof candidate.taskReason === 'string'))
+  ) {
+    throw new Error('The model returned invalid task validation.');
   }
   return candidate as ClassificationResult;
 }

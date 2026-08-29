@@ -9,21 +9,29 @@ import {
   sha256Hex,
 } from '../_shared/validation.ts';
 
-function randomInviteToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+function inviteCode(): string {
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return Array.from(bytes, (byte) => letters[byte % letters.length]).join('');
 }
 
-function mapRpcError(error: { message: string }): ApiError {
+function knownError(error: { message: string }): ApiError {
   const code = error.message.match(
-    /(PROFILE_NOT_FOUND|INVALID_SQUAD_NAME|INVALID_TIMEZONE|ALREADY_IN_SQUAD|SQUAD_OWNER_REQUIRED|INVITE_INVALID_OR_EXPIRED|SQUAD_FULL|CONTEST_NOT_OPEN)/,
+    /(ALREADY_IN_SQUAD|SQUAD_FULL|INVALID_INVITE|SQUAD_OWNER_REQUIRED|SQUAD_MEMBERSHIP_REQUIRED|MEMBER_NOT_FOUND|OWNER_TRANSFER_REQUIRED|INVALID_TIMEZONE|INVALID_SQUAD_NAME)/,
   )?.[1];
+  const statuses: Record<string, number> = {
+    ALREADY_IN_SQUAD: 409,
+    SQUAD_FULL: 409,
+    INVALID_INVITE: 400,
+    SQUAD_OWNER_REQUIRED: 403,
+    SQUAD_MEMBERSHIP_REQUIRED: 403,
+    MEMBER_NOT_FOUND: 404,
+    OWNER_TRANSFER_REQUIRED: 409,
+  };
   return new ApiError(
-    code ? 409 : 500,
+    code ? (statuses[code] ?? 400) : 500,
     code ?? 'INTERNAL_ERROR',
-    code ? code.toLowerCase().replaceAll('_', ' ') : 'Unable to update the squad.',
+    code?.toLowerCase().replaceAll('_', ' ') ?? 'Unable to update the squad.',
     { cause: error },
   );
 }
@@ -31,74 +39,79 @@ function mapRpcError(error: { message: string }): ApiError {
 Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') return optionsResponse();
   if (request.method !== 'POST') return jsonResponse({ code: 'METHOD_NOT_ALLOWED' }, 405);
-
   try {
     const context = await createRequestContext(request);
     await enforceRateLimit(context.admin, context.user.id, 'manage-squad', 20, 60);
-    let rawBody: unknown;
-    try {
-      rawBody = await request.json();
-    } catch (error) {
-      throw new ApiError(400, 'INVALID_REQUEST', 'Send a valid JSON request body.', {
-        cause: error,
-      });
-    }
-    const body = requireObject(rawBody);
+    const body = requireObject(await request.json());
     const action = requireString(body, 'action', 2, 30);
-
     if (action === 'create') {
-      const name = requireString(body, 'name', 2, 60);
-      const timezone = optionalString(body, 'timezone', 80) ?? 'Asia/Singapore';
       const { data, error } = await context.admin.rpc('create_squad_for_actor', {
         p_actor_id: context.user.id,
-        p_name: name,
-        p_timezone: timezone,
+        p_name: requireString(body, 'name', 2, 60),
+        p_timezone: optionalString(body, 'timezone', 80) ?? 'Asia/Singapore',
       });
-      if (error) throw mapRpcError(error);
+      if (error) throw knownError(error);
       return jsonResponse({ squadId: data }, 201);
     }
-
     if (action === 'createInvite') {
-      const squadId = requireUuid(body, 'squadId');
+      const code = inviteCode();
       const expiresInHours =
         body.expiresInHours === undefined ? 72 : requireInteger(body, 'expiresInHours', 1, 720);
-      const maxUses = body.maxUses === undefined ? 1 : requireInteger(body, 'maxUses', 1, 8);
-      const inviteToken = randomInviteToken();
-      const tokenHash = await sha256Hex(inviteToken);
-      const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
-      const { data, error } = await context.admin.rpc('create_squad_invite_for_actor', {
+      const { data, error } = await context.admin.rpc('create_squad_invite_code_for_actor', {
         p_actor_id: context.user.id,
-        p_squad_id: squadId,
-        p_token_hash: tokenHash,
-        p_expires_at: expiresAt,
-        p_max_uses: maxUses,
+        p_squad_id: requireUuid(body, 'squadId'),
+        p_code_hash: await sha256Hex(code),
+        p_expires_at: new Date(Date.now() + expiresInHours * 3_600_000).toISOString(),
+        p_max_uses: body.maxUses === undefined ? 1 : requireInteger(body, 'maxUses', 1, 8),
       });
-      if (error) throw mapRpcError(error);
-      return jsonResponse({ inviteId: data, inviteToken, expiresAt }, 201);
+      if (error) throw knownError(error);
+      return jsonResponse({ inviteId: data, inviteCode: code }, 201);
     }
-
     if (action === 'join') {
-      const inviteToken = requireString(body, 'inviteToken', 20, 200);
       const { data, error } = await context.admin.rpc('join_squad_for_actor', {
         p_actor_id: context.user.id,
-        p_token_hash: await sha256Hex(inviteToken),
+        p_token_hash: await sha256Hex(requireString(body, 'inviteCode', 6, 6).toUpperCase()),
       });
-      if (error) throw mapRpcError(error);
+      if (error) throw knownError(error);
       return jsonResponse({ squadId: data });
     }
-
-    if (action === 'enterContest') {
-      const squadId = requireUuid(body, 'squadId');
-      const contestId = requireUuid(body, 'contestId');
-      const { error } = await context.admin.rpc('enter_contest_for_actor', {
+    const squadId = requireUuid(body, 'squadId');
+    if (action === 'configure') {
+      const { error } = await context.admin.rpc('configure_squad_for_actor', {
         p_actor_id: context.user.id,
         p_squad_id: squadId,
-        p_contest_id: contestId,
+        p_join_enabled: Boolean(body.joinEnabled),
+        p_min_daily_members: requireInteger(body, 'minDailyMembers', 1, 8),
       });
-      if (error) throw mapRpcError(error);
-      return jsonResponse({ squadId, contestId });
+      if (error) throw knownError(error);
+      return jsonResponse({ squadId });
     }
-
+    if (action === 'removeMember') {
+      const { error } = await context.admin.rpc('remove_squad_member_for_actor', {
+        p_actor_id: context.user.id,
+        p_squad_id: squadId,
+        p_profile_id: requireUuid(body, 'profileId'),
+      });
+      if (error) throw knownError(error);
+      return jsonResponse({ squadId });
+    }
+    if (action === 'leave') {
+      const { error } = await context.admin.rpc('leave_squad_for_actor', {
+        p_actor_id: context.user.id,
+        p_squad_id: squadId,
+      });
+      if (error) throw knownError(error);
+      return jsonResponse({ squadId });
+    }
+    if (action === 'transferOwnership') {
+      const { error } = await context.admin.rpc('transfer_squad_ownership_for_actor', {
+        p_actor_id: context.user.id,
+        p_squad_id: squadId,
+        p_new_owner_id: requireUuid(body, 'newOwnerId'),
+      });
+      if (error) throw knownError(error);
+      return jsonResponse({ squadId });
+    }
     throw new ApiError(400, 'INVALID_REQUEST', 'The requested squad action is not supported.');
   } catch (error) {
     return errorResponse(error);

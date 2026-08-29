@@ -39,11 +39,25 @@ export function completeDemoSort(userBin, analysis = demoScan) {
     ...analysis,
     userBin,
     isCorrect,
-    points: { correctBin: isCorrect ? 10 : 0, preparation: 5, dailyBonus: state.dailyScans === 0 ? 10 : 0, total: points },
-    crew: { ...crew, mission: { ...crew.mission, progress: Math.min(100, state.missionProgress + 10) } },
+    points: {
+      correctBin: isCorrect ? 10 : 0,
+      preparation: 5,
+      dailyBonus: state.dailyScans === 0 ? 10 : 0,
+      total: points,
+    },
+    crew: {
+      ...crew,
+      mission: { ...crew.mission, progress: Math.min(100, state.missionProgress + 10) },
+    },
     unlock: isCorrect && state.dailyScans === 0 ? { name: 'Leaf Frame', icon: '🌿' } : null,
   };
-  save({ ...state, dailyScans: Math.min(state.dailyScans + 1, state.dailyCap), todayPoints: state.todayPoints + points, missionProgress: result.crew.mission.progress, lastResult: result });
+  save({
+    ...state,
+    dailyScans: Math.min(state.dailyScans + 1, state.dailyCap),
+    todayPoints: state.todayPoints + points,
+    missionProgress: result.crew.mission.progress,
+    lastResult: result,
+  });
   return result;
 }
 

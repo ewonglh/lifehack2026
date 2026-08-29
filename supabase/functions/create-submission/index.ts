@@ -1,41 +1,37 @@
-import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.97.0';
 import { analyzePhoto } from '../_shared/photo-analyzer.ts';
-import { dateInTimezone, downloadOwnedImage } from '../_shared/image.ts';
 import { ApiError, errorResponse, jsonResponse, optionsResponse } from '../_shared/errors.ts';
+import { parseTaskImageForm } from '../_shared/multipart.ts';
 import { createRequestContext, enforceRateLimit } from '../_shared/supabase.ts';
-import {
-  optionalBoolean,
-  optionalString,
-  requireBin,
-  requireObject,
-  requireString,
-  requireUuid,
-} from '../_shared/validation.ts';
 
-type Challenge = {
-  id: string;
-  locale_rule_version: string;
+type DailyTask = {
+  taskId: string;
+  taskDay: string;
+  prompt: string;
+  targetObject: string;
+  targetMaterial: string | null;
+  targetAction: string;
+  validationMetadata?: Record<string, unknown>;
 };
 
-async function resolveChallenge(
-  admin: SupabaseClient,
-  challengeId: string | undefined,
-  locale: string,
-  timezone: string,
-): Promise<Challenge> {
-  let query = admin.from('daily_challenges').select('id, locale_rule_version').eq('active', true);
+type AdminClient = Awaited<ReturnType<typeof createRequestContext>>['admin'];
 
-  query = challengeId
-    ? query.eq('id', challengeId)
-    : query.eq('locale', locale).eq('challenge_day', dateInTimezone(timezone));
-
-  const { data, error } = await query.maybeSingle();
+async function getDailyTask(admin: AdminClient, actorId: string): Promise<DailyTask> {
+  const { data, error } = await admin.rpc('get_or_assign_daily_task', { p_actor_id: actorId });
   if (error || !data) {
-    throw new ApiError(404, 'DAILY_CHALLENGE_NOT_FOUND', 'Today’s challenge is not available.', {
-      cause: error,
-    });
+    throw new ApiError(404, 'DAILY_TASK_NOT_AVAILABLE', 'Today’s task is not available.', { cause: error });
   }
-  return data as Challenge;
+  return data as DailyTask;
+}
+
+async function getActiveSquadId(admin: AdminClient, actorId: string): Promise<string | null> {
+  const { data, error } = await admin
+    .from('squad_members')
+    .select('squad_id')
+    .eq('profile_id', actorId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (error) throw new ApiError(500, 'INTERNAL_ERROR', 'Unable to load squad membership.', { cause: error });
+  return data?.squad_id ?? null;
 }
 
 Deno.serve(async (request: Request) => {
@@ -44,87 +40,42 @@ Deno.serve(async (request: Request) => {
 
   try {
     const context = await createRequestContext(request);
-
-    let rawBody: unknown;
-    try {
-      rawBody = await request.json();
-    } catch (error) {
-      throw new ApiError(400, 'INVALID_REQUEST', 'Send a valid JSON request body.', {
-        cause: error,
-      });
-    }
-    const body = requireObject(rawBody);
-    const squadId = requireUuid(body, 'squadId');
-    const challengeId = optionalString(body, 'challengeId', 36);
-    const idempotencyKey = requireString(body, 'idempotencyKey', 8, 128);
-    const imagePath = requireString(body, 'imageStoragePath', 3, 500);
-    const userSelectedBin = requireBin(body, 'userSelectedBin');
-    const preparationConfirmed = optionalBoolean(body, 'preparationConfirmed');
-    const locale = optionalString(body, 'locale', 30) ?? 'en-SG';
-
-    const { data: existing, error: existingError } = await context.admin
-      .from('submissions')
-      .select('result_payload')
-      .eq('profile_id', context.user.id)
-      .eq('idempotency_key', idempotencyKey)
-      .maybeSingle();
-    if (existingError) {
-      throw new ApiError(500, 'INTERNAL_ERROR', 'Unable to validate this submission.', {
-        cause: existingError,
-      });
-    }
-    if (existing?.result_payload) {
-      return jsonResponse({ ...existing.result_payload, duplicate: true });
-    }
     await enforceRateLimit(context.admin, context.user.id, 'create-submission', 10, 60);
-
-    const { data: squad, error: squadError } = await context.admin
-      .from('squads')
-      .select('timezone, squad_members!inner(profile_id, status)')
-      .eq('id', squadId)
-      .eq('squad_members.profile_id', context.user.id)
-      .eq('squad_members.status', 'active')
-      .maybeSingle();
-    if (squadError || !squad) {
-      throw new ApiError(403, 'FORBIDDEN', 'You must be an active member of this squad.', {
-        cause: squadError,
-      });
+    const form = await parseTaskImageForm(request);
+    const task = await getDailyTask(context.admin, context.user.id);
+    if (form.taskId && form.taskId !== task.taskId) {
+      throw new ApiError(409, 'DAILY_TASK_MISMATCH', 'This is not your assigned task.');
     }
 
-    const challenge = await resolveChallenge(context.admin, challengeId, locale, squad.timezone);
-    const image = await downloadOwnedImage(context.userClient, context.user.id, imagePath);
     const classification = await analyzePhoto({
-      ...image,
-      imagePath,
-      locale,
-      localeRuleVersion: challenge.locale_rule_version,
+      bytes: new Uint8Array(await form.image.arrayBuffer()),
+      contentType: form.image.type,
+      locale: form.locale,
+      localeRuleVersion: 'task-v1',
+      imagePath: 'ephemeral',
+      task,
     });
-
-    const { data, error } = await context.admin.rpc('record_verified_sort', {
+    const squadId = await getActiveSquadId(context.admin, context.user.id);
+    const matchesTask = classification.matchesTask === true && (classification.taskConfidence ?? 0) >= 0.75;
+    const { data, error } = await context.admin.rpc('record_task_submission', {
       p_actor_id: context.user.id,
+      p_task_id: task.taskId,
+      p_task_day: task.taskDay,
+      p_idempotency_key: form.idempotencyKey,
+      p_model_result: classification,
+      p_matches_task: matchesTask,
+      p_confidence: classification.taskConfidence ?? classification.confidence,
+      p_validation_reason: classification.taskReason ?? classification.explanation,
+      p_item_name: classification.itemName,
+      p_material: classification.material,
+      p_recommended_bin: classification.recommendedBin,
       p_squad_id: squadId,
-      p_challenge_id: challenge.id,
-      p_idempotency_key: idempotencyKey,
-      p_image_path: imagePath,
-      p_user_bin: userSelectedBin,
-      p_classification: classification,
-      p_preparation_confirmed: preparationConfirmed,
     });
-    if (error) {
-      const knownCode = error.message.match(
-        /(SQUAD_MEMBERSHIP_REQUIRED|DAILY_CHALLENGE_NOT_FOUND|DAILY_CHALLENGE_EXPIRED|INVALID_CLASSIFICATION)/,
-      )?.[1];
-      throw new ApiError(
-        knownCode ? 409 : 500,
-        knownCode ?? 'INTERNAL_ERROR',
-        knownCode
-          ? 'The submission can no longer be completed.'
-          : 'Unable to save this submission.',
-        { cause: error },
-      );
+    if (error || !data) {
+      const code = error?.message.match(/(DAILY_TASK_MISMATCH|DAILY_TASK_EXPIRED|SQUAD_MEMBERSHIP_REQUIRED)/)?.[1];
+      throw new ApiError(code === 'SQUAD_MEMBERSHIP_REQUIRED' ? 403 : 409, code ?? 'SUBMISSION_FAILED', code?.toLowerCase().replaceAll('_', ' ') ?? 'Unable to save this task attempt.', { cause: error });
     }
-
-    return jsonResponse(data);
+    return jsonResponse({ ...data, task });
   } catch (error) {
     return errorResponse(error);
   }

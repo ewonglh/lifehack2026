@@ -36,3 +36,24 @@ verify_jwt = true
 
 [functions.manage-squad]
 verify_jwt = true
+
+[functions.manage-profile]
+verify_jwt = true
+
+[functions.manage-mission]
+verify_jwt = true
+
+[functions.manage-league]
+verify_jwt = true
+
+[functions.manage-cosmetics]
+verify_jwt = true
+
+[functions.manage-activity]
+verify_jwt = true
+
+[functions.manage-contacts]
+verify_jwt = true
+
+[functions.league-jobs]
+verify_jwt = false
