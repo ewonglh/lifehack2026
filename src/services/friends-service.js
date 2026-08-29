@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase.js';
+import { useMockData } from '../config/env.js';
 import { getMockState, updateMockState } from './mock-store.js';
 
 const unsupported = () => {
@@ -7,13 +8,20 @@ const unsupported = () => {
     message: 'Friend APIs are not available in this Supabase project yet.',
   };
 };
+const ensureBackend = () => {
+  if (!supabase && !useMockData) {
+    throw { code: 'configuration_error', message: 'Supabase is not configured.' };
+  }
+};
 
 export const friendsService = {
   async list() {
+    ensureBackend();
     if (supabase) return unsupported();
     return getMockState().friends;
   },
   async search(query) {
+    ensureBackend();
     if (supabase) return unsupported();
     const candidates = ['Aisha Rahman', 'Noah Tan', 'Priya Nair'].map((displayName, index) => ({
       id: `search-${index}`,
@@ -25,6 +33,7 @@ export const friendsService = {
     );
   },
   async request(friend) {
+    ensureBackend();
     if (supabase) return unsupported();
     updateMockState((state) => ({
       ...state,
@@ -32,6 +41,7 @@ export const friendsService = {
     }));
   },
   async accept(id) {
+    ensureBackend();
     if (supabase) return unsupported();
     updateMockState((state) => ({
       ...state,
@@ -41,6 +51,7 @@ export const friendsService = {
     }));
   },
   async decline(id) {
+    ensureBackend();
     if (supabase) return unsupported();
     updateMockState((state) => ({
       ...state,

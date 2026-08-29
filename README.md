@@ -34,7 +34,7 @@ Open <http://localhost:3000>. Vite provides hot module replacement while the ser
 
 ## Configure Supabase
 
-The app starts in a persistent local mock mode when Supabase is not configured. This lets the authentication, onboarding, profile, and friends screens be developed without privileged credentials.
+The app can run in persistent local mock mode while the database schema is being developed. Mock mode uses browser localStorage and does not contact Supabase.
 
 To connect a Supabase project, copy `.env.example` to `.env.local` and add only browser-safe project values:
 
@@ -42,6 +42,16 @@ To connect a Supabase project, copy `.env.example` to `.env.local` and add only 
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-publishable-anon-key
 ```
+
+For schema-free local testing, use this instead in `.env.local`:
+
+```shell
+VITE_USE_MOCK_DATA=true
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+```
+
+The mock flag is honored only by Vite development builds. On the sign-in page, choose **Reset local demo data** to clear the dummy user, profile, and friends.
 
 Add `http://localhost:3000/?auth_callback=1#/auth/callback` and the equivalent deployed URL to Supabase Auth’s allowed redirect URLs before testing Google OAuth or magic links. Never add a Supabase service-role key or an OpenAI key to a `VITE_` variable. The current frontend expects a `profiles` table; the friend service remains mock-backed until the backend friendship contract is merged.
 

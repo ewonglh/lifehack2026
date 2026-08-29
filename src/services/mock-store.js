@@ -25,3 +25,8 @@ export function setMockState(next) {
 export function updateMockState(callback) {
   return setMockState(callback(getMockState()));
 }
+
+export function resetMockState() {
+  localStorage.removeItem(key);
+  return structuredClone(initialState);
+}

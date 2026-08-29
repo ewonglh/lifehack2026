@@ -1,13 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
-import { env, isSupabaseConfigured } from '../config/env.js';
+import { env, useMockData } from '../config/env.js';
 
-export const supabase = isSupabaseConfigured
-  ? createClient(env.supabaseUrl, env.supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce',
-      },
-    })
-  : null;
+export const supabase =
+  !useMockData && env.supabaseUrl && env.supabaseAnonKey
+    ? createClient(env.supabaseUrl, env.supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: 'pkce',
+        },
+      })
+    : null;

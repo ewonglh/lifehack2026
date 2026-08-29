@@ -6,6 +6,7 @@ import { announce } from './lib/dom.js';
 import { validateEnvironment } from './config/env.js';
 import { authService } from './services/auth-service.js';
 import { publicLayout } from './layouts/public-layout.js';
+import { resetMockState } from './services/mock-store.js';
 
 function renderStartupError(error) {
   root.innerHTML = publicLayout(
@@ -27,6 +28,14 @@ document.addEventListener('click', async (event) => {
     }
     return;
   }
+  const reset = event.target.closest('[data-reset-mock]');
+  if (reset) {
+    resetMockState();
+    await session.signOut();
+    announce('Local demo data was reset.', 'success');
+    router.navigate('/auth');
+    return;
+  }
   const signOut = event.target.closest('[data-sign-out]');
   if (!signOut) return;
   try {
@@ -44,16 +53,22 @@ if (environment.mode === 'mock') {
     'EcoCrew is running with local mock data. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable Supabase.',
   );
 }
-
-try {
-  await session.restore();
-  authService.onChange(() =>
-    session
-      .refresh()
-      .then(() => router.start())
-      .catch(renderStartupError),
+if (!environment.valid) {
+  renderStartupError(
+    new Error('Add Supabase credentials, or enable VITE_USE_MOCK_DATA during development.'),
   );
-  router.start();
-} catch (error) {
-  renderStartupError(error);
+  // Keep the invalid production configuration on its visible recovery screen.
+} else {
+  try {
+    await session.restore();
+    authService.onChange(() =>
+      session
+        .refresh()
+        .then(() => router.start())
+        .catch(renderStartupError),
+    );
+    router.start();
+  } catch (error) {
+    renderStartupError(error);
+  }
 }

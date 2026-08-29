@@ -1,8 +1,12 @@
 import { supabase } from '../lib/supabase.js';
+import { useMockData } from '../config/env.js';
 import { getMockState, updateMockState } from './mock-store.js';
 
 export const profileService = {
   async get(userId) {
+    if (!supabase && !useMockData) {
+      throw { code: 'configuration_error', message: 'Supabase is not configured.' };
+    }
     if (supabase) {
       const { data, error } = await supabase
         .from('profiles')
@@ -15,6 +19,9 @@ export const profileService = {
     return getMockState().profile;
   },
   async save(userId, values) {
+    if (!supabase && !useMockData) {
+      throw { code: 'configuration_error', message: 'Supabase is not configured.' };
+    }
     const profile = {
       id: userId,
       display_name: values.displayName.trim(),
