@@ -16,6 +16,10 @@ export function appShell(title, eyebrow, content) {
 }
 
 export function navigate(path) {
+  if (window.location.hash === `#${path}`) {
+    window.dispatchEvent(new Event('hashchange'));
+    return;
+  }
   window.location.hash = path;
 }
 

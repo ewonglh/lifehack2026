@@ -11,7 +11,7 @@ The core product principle is **delight first, obligation second**. Recycling ed
 Deliver one polished, end-to-end loop that proves the app can be fun enough to revisit, socially motivating, and clear to use:
 
 1. Sign in and create or join a crew.
-2. Start the daily "Sort It!" challenge.
+2. Start the daily **Create Post** challenge.
 3. Take or upload an item photo.
 4. Choose the appropriate disposal bin.
 5. Receive VLM-assisted feedback and a concise preparation tip.
@@ -41,11 +41,11 @@ Primary job: *When I am about to throw something away, help me make the right ch
 
 ### 5.1 Daily gameplay loop
 
-1. The home screen presents one clear CTA: **Sort today’s item**.
-2. The player photographs or uploads an item.
+1. The home screen presents one clear CTA: **Create today’s post**.
+2. The player photographs or uploads an item for the post.
 3. Before seeing the result, the player selects a bin: recycle, compost, return/reuse, or landfill.
 4. The VLM evaluates the image and the game reveals the result with animation, points, and a one-sentence preparation instruction.
-5. The activity adds to the player’s daily score, crew goal, mission progress, and streak.
+5. A private-by-default post summary is added to the player’s profile, and the activity adds to the daily score, crew goal, mission progress, and streak.
 6. The player sees a lightweight social moment: teammate activity, reaction, or challenge invitation.
 
 ### 5.2 Scoring principles
@@ -116,7 +116,7 @@ Use a daily cap for repeat scan points. This keeps the game fair and focuses it 
 
 ### 8.1 Proposed stack
 
-- **Frontend:** JavaScript, Vite, Bootstrap, and Sass; Tailwind CSS and a small animation library.
+- **Frontend:** native JavaScript ES modules, Vite, Bootstrap, Bootstrap Icons, and Sass.
 - **Backend services:** Supabase Auth, Postgres, Row Level Security, Storage, and Edge Functions.
 - **Vision:** VLM called from an Edge Function so API credentials are never exposed in the browser.
 - **State/data fetching:** TanStack Query or equivalent; optimistic updates for scan completion and reactions.
@@ -130,10 +130,10 @@ The UI may be frontend-only in the sense that it needs no custom server to run, 
 
 | Table | Key fields | Purpose |
 |---|---|---|
-| `profiles` | `id`, `display_name`, `avatar_id`, `frame_id`, `privacy_settings` | Player identity and preferences |
+| `profiles` | `id`, `display_name`, `handle`, `age`, `about`, `avatar_id`, `frame_id`, `privacy_settings` | Player identity, About Myself content, and preferences |
 | `crews` | `id`, `name`, `owner_id`, `weekly_points`, `league` | Private competition group |
 | `crew_members` | `crew_id`, `profile_id`, `role`, `joined_at` | Crew membership |
-| `scan_events` | `id`, `profile_id`, `image_path`, `model_result`, `user_bin`, `final_bin`, `confidence`, `points`, `created_at` | Auditable recycling action |
+| `scan_events` | `id`, `profile_id`, `image_path`, `model_result`, `user_bin`, `final_bin`, `confidence`, `points`, `created_at`, `profile_visible` | Auditable recycling action and source for a profile post summary |
 | `daily_progress` | `profile_id`, `day`, `verified_actions`, `points` | Daily cap and habit tracking |
 | `crew_streaks` | `crew_id`, `current_streak`, `repair_tokens`, `last_completed_day` | Shared retention mechanic |
 | `weekly_missions` | `id`, `title`, `theme`, `target`, `start_at`, `end_at` | Rotating challenge definition |
@@ -175,16 +175,17 @@ Validate the schema before displaying it. If confidence is low or the image is u
 - Implement auth, profile setup, and schema/RLS migrations.
 - Build responsive app shell, nav, and empty states.
 
-### Milestone 2 — The sorting game (3–5 hours)
+### Milestone 2 — Create Post and sorting game (3–5 hours)
 
-- Build camera/upload interaction with image preview.
+- Build the Create Post camera/upload interaction with image preview.
 - Implement bin-selection game UI and result reveal.
 - Add Edge Function, VLM schema validation, and deterministic mocked fallback.
 - Persist scan events, calculate points, and allow corrections.
 
 ### Milestone 3 — Crew magic (3–4 hours)
 
-- Create/join crew flow using invite code or link.
+- Create/join crew flow using an invite code or link; hide membership actions after joining.
+- Add an invitation dropdown for X, Instagram, Telegram, and WhatsApp while retaining a copy-link fallback.
 - Add crew goal, shared streak, activity feed, and quick reactions.
 - Seed a weekly mission and show progress animations.
 
@@ -203,7 +204,7 @@ Validate the schema before displaying it. If confidence is low or the image is u
 
 ## 10. Acceptance criteria
 
-- A new user can sign in, join a crew, complete a scan/sort, and see updated crew progress in one session.
+- A new user can register or sign in, join/create a crew, complete a post/sort, and see updated profile and crew progress in one session.
 - The scan experience handles success, low confidence, and API failure without dead ends.
 - Points have a visible explanation and lead to at least one meaningful reward.
 - A crew streak has an understandable rule and a visible repair token.
@@ -215,7 +216,7 @@ Validate the schema before displaying it. If confidence is low or the image is u
 
 1. Open EcoCrew as a player in the "Glass Guardians" weekly challenge.
 2. Show the crew is one contribution away from preserving its streak.
-3. Photograph a bottle, choose **Recycle**, and receive the satisfying result reveal and preparation tip.
+3. Create a bottle post, choose **Recycle**, and receive the satisfying result reveal and preparation tip.
 4. Show the point breakdown updating the crew goal and streak.
 5. React to a teammate or show their recent contribution.
 6. Reveal a newly unlocked profile frame and the crew’s movement in its weekly league.
@@ -239,3 +240,69 @@ Validate the schema before displaying it. If confidence is low or the image is u
 3. Test missions that reward waste avoidance, reuse, and composting alongside recycling.
 4. Evolve the cosmetic shop based on what players actually return for.
 5. Explore partnerships or tangible rewards only after the social habit loop demonstrates retention.
+
+## 14. Current implementation status (29 August 2026)
+
+The current branch is a frontend demo. Completed behavior is backed by deterministic fixtures and browser storage unless stated otherwise.
+
+### Implemented
+
+- Vite/Bootstrap/Sass application shell with hash routing and mobile bottom navigation.
+- Routes for register, login, dashboard, Create Post, result, crew, league, and profile screens.
+- Mock register/login interaction with client validation and session storage.
+- Daily dashboard with post allowance, points, shared streak, mission progress, and next unlock.
+- Camera/file selection, preview, four-bin choice, simulated analysis, result explanation, and point breakdown.
+- Automatic profile post summary after a completed sorting attempt.
+- Editable profile fields for name, handle, age, and About Myself, persisted in local storage.
+- Profile statistics, cosmetic collection, empty post state, and My Posts history.
+- Join and Create crew forms with locally persisted membership. Join/Create controls are hidden after membership exists.
+- Owner-only Delete Crew action with confirmation; deletion clears the prototype crew’s members and crew-scoped progress while preserving personal posts and lifetime points.
+- Invite dropdown with X, Instagram, Telegram, and WhatsApp actions.
+- Separate daily, lifetime, and weekly point counters. Lifetime profile points never reset; league points reset each Monday at 00:00 Asia/Singapore and recalculate the displayed ranking.
+- Reusable top-right Info control on every registered screen, including authentication and not-found pages.
+- Seeded activity feed with reactions, weekly crew league, and cosmetic equip interactions.
+- Responsive feature styling, semantic labels, keyboard controls, and reduced-motion handling.
+- Stylelint and Vite production build passing through `npm test`.
+
+### Integration still required
+
+- Replace mock authentication/session state with Supabase Auth and route protection.
+- Replace local profile, post, membership, reactions, points, and mission state with RLS-protected Postgres data.
+- Upload original photos to a private Storage bucket and use short-lived signed upload details.
+- Connect the Create Post flow to the trusted analysis Edge Function and normalized VLM response.
+- Implement server-side scoring, daily caps, idempotency, streak transactions, mission progress, and unlocks.
+- Add low-confidence, invalid-image, offline, permission-denied, retry, and backend-failure states.
+- Make profile-post visibility opt-in and add deletion/privacy controls.
+- Add unit, integration, and end-to-end tests for the complete player journey.
+
+### Terminology decision
+
+The user-facing feature is called **Post**, because the completed action appears in My Posts and can contribute to crew activity. Internally it remains a `scan_event` and currently uses `submit-page.js`, `scan-service.js`, and the compatibility route `#/sort`. Renaming internal identifiers must be coordinated with the backend contract rather than performed piecemeal.
+
+## 15. Three-person implementation ownership
+
+### Person 1 - Backend owner
+
+- Owns `supabase/**`, schema migrations, RLS, private Storage policies, seed data, RPCs, and Edge Functions.
+- Owns VLM normalization, scoring, idempotency, daily caps, crew membership mutations, missions, streaks, and canonical error codes.
+- Publishes the canonical contracts and integration fixtures consumed by the frontend.
+
+### Person 2 - Frontend platform owner
+
+- Owns `index.html`, `src/main.js`, shared route registration, session integration, layouts, common components, global Sass, tokens, package configuration, and application-wide test setup.
+- Owns real authentication integration, route guards, shared loading/error behavior, settings, and global responsive/accessibility behavior.
+
+### Person 3 - Product-page owner (Irfan)
+
+- Owns dashboard, Create Post, result, crew, activity, invitations, league, cosmetics, and profile page behavior.
+- Owns `src/features/ecocrew/**`, relevant page modules, feature-specific Sass, mock fixtures, and the end-to-end demo journey.
+- Integrates these pages against Person 1's contracts without calculating trusted production awards in the browser.
+
+### Merge and integration order
+
+1. Freeze normalized profile, post/scan, crew membership, analysis, scoring, and error contracts.
+2. Integrate Supabase Auth and profile creation.
+3. Integrate crew create/join and invitation links.
+4. Integrate private photo upload, analysis, confirmation, and scoring.
+5. Integrate posts, crew activity, reactions, missions, streaks, league, and cosmetics.
+6. Replace remaining browser persistence and run the full mobile end-to-end journey.

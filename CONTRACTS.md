@@ -15,7 +15,7 @@ The supported core loop is:
 1. Capture or upload an item image.
 2. Make a disposal-bin choice.
 3. Receive guidance and confirm/correct the result.
-4. Earn bounded progress for the player and crew.
+4. Create a profile post summary and earn bounded progress for the player and crew.
 
 Anything outside that loop—national rankings, large reward economies, contacts synchronization, many local rulesets—is secondary. It must not block a player from completing the loop.
 
@@ -46,6 +46,9 @@ Anything outside that loop—national rankings, large reward economies, contacts
 - A `profiles` record is created once per authenticated user.
 - Display names are unique only within a crew; use stable IDs internally.
 - Do not use email addresses as public identifiers.
+- Editable profile fields currently include display name, handle, age, and About Myself text.
+- Age is self-reported, is not used to make automated eligibility decisions, and must have an explicit visibility setting before production launch.
+- About Myself is untrusted user content: escape it when rendering, apply length limits, and include it in account deletion/export behavior.
 
 ### 3.2 Crews
 
@@ -53,19 +56,25 @@ Anything outside that loop—national rankings, large reward economies, contacts
 - Crew owners can invite/remove members and configure crew-level settings.
 - A player may leave a crew without deleting their personal scan history.
 - Historical crew totals remain intact when someone leaves, but private player data is not exposed after departure.
+- Only the crew owner may delete a crew. Deletion is a confirmed, trusted server transaction that invalidates invites, removes all active memberships, and removes or archives crew-scoped mission, streak, feed, and league state according to retention policy.
+- Deleting a crew does not delete a former member’s personal profile, private posts, scan history, or lifetime points.
 - The product should define a small initial maximum crew size (for example, 8) and enforce it server-side.
+- Join and Create actions are shown only when the player has no active crew membership. The server remains responsible for preventing conflicting memberships and enforcing capacity.
 
 ### 3.3 Invites and contacts
 
 - Contact import is optional, consent-based, and never required to play.
 - Store only the minimum invite metadata needed; do not persist an entire address book by default.
 - Invite links are revocable, expire, and may be single-use or rate-limited.
-- A manual share link is the baseline path. Facebook/Google integrations are enhancements, not dependencies.
+- A manual share link is the baseline path. The current interface offers X, Instagram, Telegram, and WhatsApp; these channels receive only a revocable invite URL and user-authored share text.
+- Instagram has no direct browser-targeted share endpoint in the current prototype, so its action copies the invite link for the user to paste.
 
 ### 3.4 Images and activity sharing
 
 - Item photos are private by default.
 - The social feed shares an activity summary (for example, “Ari completed a recycling action”), not the photo, unless the user explicitly chooses otherwise.
+- A **post** is the user-facing projection of a completed `scan_event`. Its default profile representation contains item name, chosen/final bin, outcome, points, and creation time, but not the original image.
+- Creating a scan does not automatically make the original image public. Future image sharing requires a separate, explicit visibility choice.
 - Players can delete their images and activity records, subject to clearly explained leaderboard/history effects.
 - Never use submitted images for unrelated model training or marketing without separate, explicit consent.
 
@@ -122,6 +131,8 @@ The threshold is configurable server-side (initially, for example, `0.70`) and m
 
 - Reward correct decisions and preparation, not raw material volume.
 - Cap repeatable points per day and per action type.
+- A player’s lifetime profile total starts when the account is created and does not reset between league weeks.
+- League points belong to one explicit weekly window and reset at its boundary. The initial demo boundary is Monday at `00:00` in `Asia/Singapore`.
 - Player-facing score explanations must match server calculations.
 - No client can directly write points, streaks, rankings, or unlocked inventory.
 - Scoring rules are versioned so score changes can be understood and audited.
@@ -162,11 +173,53 @@ Player totals, crew totals, and rankings are derived from these events or update
 ### 5.5 Leaderboard definition
 
 - Weekly rankings use a fixed start/end timestamp and a score snapshot or deterministic query.
+- Resetting a weekly league must not modify lifetime points, historical posts, or immutable score events; the weekly total is a windowed projection of those events.
 - Ties use a documented tie-breaker (for example, earliest completion time, then shared rank).
 - A crew’s relevant league is the default view; worldwide ranking is secondary.
 - Rankings need not be real-time; label refresh time honestly.
 
 ## 6. API contracts
+
+### 6.0 Shared frontend models
+
+The frontend mock adapter and future Supabase services should normalize data to these shapes. Database column names may use snake case, but service adapters expose consistent camel case to page modules.
+
+```ts
+type Profile = {
+  id: string;
+  displayName: string;
+  handle: string;
+  age: number | null;
+  about: string;
+  location: string;
+  avatarId: string | null;
+  frameId: string | null;
+  ageVisibility: "private" | "crew" | "public";
+};
+
+type ProfilePost = {
+  id: string;
+  scanEventId: string;
+  itemName: string;
+  finalBin: DisposalBin;
+  isCorrect: boolean | null;
+  points: number;
+  createdAt: string;
+  visibility: "private" | "crew" | "public";
+  imageVisible: boolean;
+};
+
+type CrewMembership = {
+  crewId: string;
+  crewName: string;
+  role: "owner" | "member";
+  joinedAt: string;
+};
+```
+
+The profile update endpoint accepts only editable fields (`displayName`, `handle`, `age`, and `about`) plus explicit visibility preferences. It must ignore attempts to update points, streaks, roles, inventory ownership, or server-generated statistics.
+
+Crew Create and Join mutations return the same normalized `CrewMembership` shape. Joining accepts an opaque invite token, not a trusted crew ID supplied by the browser. A successful mutation invalidates crew, mission, feed, and league queries so Join/Create controls disappear immediately.
 
 ### 6.1 Classify-and-score request
 
@@ -193,6 +246,7 @@ Validation rules:
 ```ts
 type ClassifyAndScoreResponse = {
   scanEventId: string;
+  post: ProfilePost;
   classification: ClassificationResult;
   outcome: "confirmed" | "needs_confirmation" | "unknown";
   awarded: Array<{ actionType: string; points: number }>;
@@ -216,6 +270,10 @@ All endpoints return a stable error code and safe user message:
 | `UNAUTHENTICATED` | Ask the user to sign in again |
 | `FORBIDDEN` | Explain they do not have access; do not reveal private resource details |
 | `INVALID_IMAGE` | Ask for a new photo or supported format |
+| `INVALID_INVITE` | Keep the Join form open and request a valid, current invite |
+| `CREW_FULL` | Explain that the crew has reached its member limit |
+| `ALREADY_IN_CREW` | Refresh membership and hide Join/Create controls |
+| `HANDLE_TAKEN` | Keep profile edits and request another handle |
 | `RATE_LIMITED` | Explain when to try again; preserve the user’s current screen |
 | `MODEL_UNAVAILABLE` | Offer retry/manual guidance; do not imply the item was classified |
 | `DUPLICATE_REQUEST` | Rehydrate and display the original response |
@@ -252,6 +310,7 @@ All endpoints return a stable error code and safe user message:
 - Bin names and icons are always paired; color alone never conveys meaning.
 - Loading states show progress and retain the image-selection context.
 - Every primary view has loading, empty, error, and offline/degraded states.
+- Every page exposes a keyboard-accessible Info control near its top-right corner with a concise explanation of the page’s purpose.
 - Animations enhance feedback but respect `prefers-reduced-motion`.
 - Touch targets are at least 44×44 CSS pixels where practical.
 - Design tokens define color, spacing, type, radii, and motion; feature screens do not introduce arbitrary one-off values.
@@ -268,8 +327,10 @@ Initial events:
 | `daily_challenge_started` | player/crew anonymized IDs, mission ID | Do players begin the loop? |
 | `sort_submitted` | selected bin, locale, confidence band | Is the interaction understandable? |
 | `sort_completed` | outcome, points, duration band | Is the loop fast and satisfying? |
+| `profile_post_created` | post visibility, image-visible boolean | Do players value keeping a history of eco actions? |
 | `classification_corrected` | model bin, final bin, reason optional | Where is model guidance failing? |
-| `crew_invite_created/joined` | crew ID, invite channel | Does the social hook work? |
+| `crew_created/joined` | crew ID, entry method | Do players form or join crews? |
+| `crew_invite_shared` | crew ID, invite channel | Which invitation paths support crew growth? |
 | `reward_unlocked/equipped` | item ID, unlock rule | Are progression rewards motivating? |
 
 Review retention by cohort (day 1, day 7) and correction rate before expanding reward systems.
@@ -303,3 +364,28 @@ When an implementation choice is unclear, choose the option that:
 5. Can be demonstrated reliably at the hackathon.
 
 Record deviations from these contracts with a short reason, owner, and expiry/review date.
+
+## 12. Current frontend prototype contract
+
+Until Supabase integration is complete, `src/features/ecocrew/scan-service.js` provides a disposable browser adapter. This section documents its behavior so it is not mistaken for the production security model.
+
+### Browser keys
+
+- `localStorage.ecocrew-demo-state` stores profile edits, post summaries, points, daily usage, crew membership, mission progress, the last result, and reactions.
+- `sessionStorage.ecocrew-demo-signed-in` records that a mock login/register action was completed.
+- Neither value proves identity or authorization. Route access is not currently guarded.
+
+### Prototype behaviors
+
+- Image analysis always returns the deterministic bottle fixture after a short delay.
+- The browser currently calculates demo points and mission progress.
+- The browser stores lifetime points independently from daily and weekly points. It resets weekly league points on the first read after a Monday `00:00` Asia/Singapore boundary.
+- Completing the flow creates a profile post summary in local storage; the selected local image is previewed with an object URL and is not persisted.
+- Join accepts any invite string of at least three characters and maps it to the seeded Glass Guardians crew.
+- Create accepts a crew name and derives a demonstration invite code locally.
+- Deleting a locally created crew clears its local membership and crew-scoped demo progress. Production deletion still requires an owner-authorized atomic backend operation that removes every membership and revokes invites.
+- X, Telegram, and WhatsApp open web sharing URLs. Instagram copies the invite URL because the prototype cannot target the Instagram app directly.
+
+### Replacement rule
+
+Each prototype mutation must be replaced by an authenticated service call before production. Do not incrementally treat local storage as a cache of trusted totals. When an API is integrated, rehydrate that complete domain (for example, crew membership and mission state together) from the server and remove the corresponding browser mutation.

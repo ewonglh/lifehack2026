@@ -47,3 +47,16 @@ export const cosmetics = [
   { id: 'sunny-badge', name: 'Sunny Badge', icon: '☀️', unlocked: true, equipped: false },
   { id: 'mushroom-frame', name: 'Mushroom Frame', icon: '🍄', unlocked: false, progress: '2 more correct sorts' },
 ];
+
+export const profile = {
+  name: 'Irfan',
+  handle: '@irfan.eco',
+  age: 21,
+  about: 'I am learning to make low-waste choices one small habit at a time. I am here for the crew energy, tiny wins, and a cleaner Singapore.',
+  location: 'Singapore',
+  joinedLabel: 'EcoCrew member since August 2026',
+  totalPoints: 1280,
+  correctSorts: 42,
+  longestStreak: 8,
+  avatar: 'I',
+};

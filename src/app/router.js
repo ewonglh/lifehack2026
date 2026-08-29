@@ -26,7 +26,8 @@ function renderRoute(outlet) {
   }
 
   const page = route?.render ? route.render() : renderNotFound();
-  outlet.replaceChildren(renderAppLayout(page, path));
+  const isPublicAuthPage = path === '/login' || path === '/register';
+  outlet.replaceChildren(isPublicAuthPage ? page : renderAppLayout(page, path));
   outlet.focus();
 }
 

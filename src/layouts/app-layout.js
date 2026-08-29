@@ -1,8 +1,9 @@
 const navigation = [
   { path: '/dashboard', label: 'Home', icon: 'bi-house-door' },
-  { path: '/sort', label: 'Sort', icon: 'bi-camera' },
+  { path: '/sort', label: 'Post', icon: 'bi-plus-circle' },
   { path: '/crew', label: 'Crew', icon: 'bi-people' },
   { path: '/league', label: 'League', icon: 'bi-trophy' },
+  { path: '/profile', label: 'Profile', icon: 'bi-person' },
 ];
 
 export function renderAppLayout(page, activePath) {

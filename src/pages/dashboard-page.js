@@ -7,9 +7,9 @@ export function renderDashboardPage() {
   const remaining = Math.max(0, state.dailyCap - state.dailyScans);
   const page = appShell('Make today count.', 'Good morning, Irfan', `
     <section class="ecocrew-hero-card">
-      <div><p class="ecocrew-kicker">TODAY'S SORT</p><h2>One small choice.<br>Big crew energy.</h2><p>${remaining ? `${remaining} verified sort${remaining === 1 ? '' : 's'} left today.` : 'Daily verified sorts complete — nice work!'}</p></div>
+      <div><p class="ecocrew-kicker">TODAY'S POST</p><h2>One small choice.<br>Big crew energy.</h2><p>${remaining ? `${remaining} verified post${remaining === 1 ? '' : 's'} left today.` : 'Daily verified posts complete — nice work!'}</p></div>
       <span class="ecocrew-hero-card__art" aria-hidden="true">♻</span>
-      <button class="btn ecocrew-btn-primary" data-action="sort" ${remaining ? '' : 'disabled'}>${remaining ? 'Sort today’s item' : 'Come back tomorrow'}</button>
+      <button class="btn ecocrew-btn-primary" data-action="sort" ${remaining ? '' : 'disabled'}>${remaining ? 'Create today’s post' : 'Come back tomorrow'}</button>
     </section>
     <section class="ecocrew-stat-grid" aria-label="Your progress">
       <article><span>Today</span><strong>${state.todayPoints}</strong><small>points earned</small></article>
