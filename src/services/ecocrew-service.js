@@ -200,6 +200,10 @@ export const ecoCrewService = {
         league: getDemoLeagueOverview(),
         dailyPoints: state.dailyPoints,
         lifetimePoints: state.lifetimePoints,
+        personalStreak: {
+          current: Number(state.personalStreak?.current ?? 0),
+          longest: Number(state.personalStreak?.longest ?? 0),
+        },
         weeklyPoints: state.crewMembership ? state.weeklyPoints : null,
         todayActionStatus: state.pendingSubmissionId
           ? 'pending'
@@ -224,6 +228,7 @@ export const ecoCrewService = {
     const [
       { data: submissionRows, error: submissionError },
       { data: profileProgress, error: progressError },
+      { data: personalStreak, error: streakError },
     ] = await Promise.all([
       supabase
         .from('submissions')
@@ -238,9 +243,15 @@ export const ecoCrewService = {
         .select('lifetime_xp')
         .eq('profile_id', userId)
         .maybeSingle(),
+      supabase
+        .from('user_streaks')
+        .select('current_streak, longest_streak')
+        .eq('profile_id', userId)
+        .maybeSingle(),
     ]);
     if (submissionError) throw submissionError;
     if (progressError) throw progressError;
+    if (streakError) throw streakError;
     const submissions = submissionRows || [];
     const verified = submissions.find(
       (submission) => submission.verification_status === 'verified',
@@ -255,6 +266,10 @@ export const ecoCrewService = {
       league,
       dailyPoints,
       lifetimePoints: Number(profileProgress?.lifetime_xp || 0),
+      personalStreak: {
+        current: Number(personalStreak?.current_streak || 0),
+        longest: Number(personalStreak?.longest_streak || 0),
+      },
       weeklyPoints: crew.membership ? Number(crew.weeklyPoints || league.league?.score || 0) : null,
       todaySubmitted: Boolean(verified),
       todayActionStatus: verified ? 'completed' : pending ? 'pending' : 'available',
@@ -447,7 +462,7 @@ export const ecoCrewService = {
       posts,
       cosmetics,
       lifetimePoints: Number(state?.lifetimePoints ?? stats?.lifetimePoints ?? 0),
-      bestStreak: Number(state?.bestStreak ?? stats?.bestStreak ?? 0),
+      bestStreak: Number(state?.personalStreak?.longest ?? stats?.bestStreak ?? 0),
     };
   },
 

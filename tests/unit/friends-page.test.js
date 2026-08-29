@@ -158,4 +158,30 @@ describe('crew page membership actions', () => {
     expect(sharedUrl).toContain('ECO123');
     expect(sharedUrl).toContain('%23%2Fjoin%2FECO123');
   });
+
+  it('shows a loader while the crew overview is pending', async () => {
+    let resolveOverview;
+    getCrewOverview.mockReturnValue(
+      new Promise((resolve) => {
+        resolveOverview = resolve;
+      }),
+    );
+    const rendered = renderFriendsPage();
+    const pending = rendered.afterRender();
+
+    expect(
+      rendered.element.querySelector('[data-crew-content] [data-loading-state]'),
+    ).not.toBeNull();
+    expect(rendered.element.querySelector('[data-crew-content]').getAttribute('aria-busy')).toBe(
+      'true',
+    );
+
+    resolveOverview({ membership: null });
+    await pending;
+
+    expect(rendered.element.querySelector('[data-crew-content] [data-loading-state]')).toBeNull();
+    expect(rendered.element.querySelector('[data-crew-content]').getAttribute('aria-busy')).toBe(
+      'false',
+    );
+  });
 });

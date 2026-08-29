@@ -5,6 +5,7 @@ import {
   navigate as defaultNavigate,
   progressBar,
 } from '../features/ecocrew/page-utils.js';
+import { formatTaskDate, getDayOfYear, getDaysInYear } from '../utils/dates.js';
 
 function profileName(profile) {
   return profile?.displayName || profile?.display_name || 'there';
@@ -13,6 +14,22 @@ function profileName(profile) {
 function setText(page, selector, value) {
   const target = page.querySelector(selector);
   if (target) target.textContent = value;
+}
+
+function dailyIdentity(taskDay) {
+  const dayNumber = getDayOfYear(taskDay);
+  const daysInYear = getDaysInYear(taskDay);
+  const dayLabel = dayNumber ? '#' + dayNumber : 'today';
+  const dateLabel = formatTaskDate(taskDay);
+
+  return {
+    dayLabel,
+    marker: dateLabel
+      ? dayLabel + ' · ' + dateLabel
+      : dayNumber && daysInYear
+        ? dayLabel + ' of ' + daysInYear
+        : 'TODAY’S ACTION',
+  };
 }
 
 export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}) {
@@ -24,7 +41,7 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
       '<div data-dashboard-task-loading>' +
       loadingState('Loading today’s action') +
       '</div>' +
-      '<div data-dashboard-task-content hidden><p class="ecocrew-kicker" data-dashboard-task-title>CLEAN BOTTLE CHECK</p><h2 data-dashboard-task-instruction>Today’s action</h2><p data-dashboard-task-meta>Complete your assigned action.</p></div>' +
+      '<div data-dashboard-task-content hidden><p class="ecocrew-kicker ecocrew-day-marker" data-dashboard-day-marker>TODAY’S ACTION</p><p class="ecocrew-kicker" data-dashboard-task-title>CLEAN BOTTLE CHECK</p><h2 data-dashboard-task-instruction>Today’s action</h2><p data-dashboard-task-meta>Complete your assigned action.</p></div>' +
       '<span class="ecocrew-hero-card__art" aria-hidden="true">♻</span>' +
       '<button class="btn ecocrew-btn-primary" type="button" data-action="sort" disabled>Start today’s action</button>' +
       '</section>' +
@@ -34,6 +51,7 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
       '</div>' +
       '<div data-dashboard-stats-content hidden>' +
       '<article><span>Today</span><strong data-dashboard-today>0</strong><small>points earned</small></article>' +
+      '<article><span>Your streak</span><strong data-dashboard-personal-streak>0</strong><small>days in a row</small></article>' +
       '<article><span>Crew streak</span><strong data-dashboard-streak>—</strong><small>days together</small></article>' +
       '<article><span>Weekly points</span><strong data-dashboard-weekly>—</strong><small data-dashboard-weekly-label>this league week</small></article>' +
       '</div>' +
@@ -97,6 +115,12 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
         const crewCard = page.querySelector('[data-dashboard-crew-card]');
         const status = data.todayActionStatus || (data.todaySubmitted ? 'completed' : 'available');
         const task = data.task || {};
+        const identity = dailyIdentity(task.taskDay);
+        const personalStreak = Number(data.personalStreak?.current ?? data.personalStreak ?? 0);
+        const personalStreakLabel = personalStreak ? String(personalStreak) + ' 🔥' : '0';
+        const actionLabel =
+          identity.dayLabel === 'today' ? 'today’s action' : identity.dayLabel + ' action';
+        setText(page, '[data-dashboard-day-marker]', identity.marker);
         setText(page, '[data-dashboard-task-title]', task.title || 'Today’s action');
         setText(
           page,
@@ -108,12 +132,13 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
           page,
           '[data-dashboard-task-meta]',
           status === 'pending'
-            ? 'Your bottle is ready. Finish the check-in when you have recycled it.'
+            ? 'Your ' + actionLabel + ' is waiting for check-in.'
             : status === 'completed'
-              ? 'Today’s action is complete. Keep the habit going.'
-              : 'Empty it first, place it in recycling, then check in.',
+              ? identity.dayLabel + ' is complete. Keep the habit going.'
+              : 'Empty it first, place it in recycling, then check in for ' + actionLabel + '.',
         );
         setText(page, '[data-dashboard-today]', String(dailyPoints));
+        setText(page, '[data-dashboard-personal-streak]', personalStreakLabel);
         setText(
           page,
           '[data-dashboard-weekly]',
@@ -156,15 +181,24 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
         if (button) {
           button.disabled = !data.task;
           if (status === 'completed') {
-            button.textContent = 'View today’s result';
+            button.textContent =
+              identity.dayLabel === 'today'
+                ? 'View today’s result'
+                : 'View ' + identity.dayLabel + ' result';
             button.dataset.destination =
               '/result/' + encodeURIComponent(data.todaySubmissionId || 'latest');
           } else if (status === 'pending') {
-            button.textContent = 'Finish today’s action';
+            button.textContent =
+              identity.dayLabel === 'today'
+                ? 'Finish today’s action'
+                : 'Finish ' + identity.dayLabel + ' check-in';
             button.dataset.destination =
               '/result/' + encodeURIComponent(data.todaySubmissionId || 'latest');
           } else {
-            button.textContent = 'Start today’s action';
+            button.textContent =
+              identity.dayLabel === 'today'
+                ? 'Start today’s action'
+                : 'Do ' + identity.dayLabel + ' action';
             button.dataset.destination = '/sort';
           }
         }

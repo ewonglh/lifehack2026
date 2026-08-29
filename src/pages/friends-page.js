@@ -1,4 +1,5 @@
 import { ecoCrewService } from '../services/ecocrew-service.js';
+import { loadingState } from '../components/loading-state.js';
 import {
   appShell,
   buildInviteUrl,
@@ -148,7 +149,7 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
   const page = appShell(
     'Crew hub',
     'Crews',
-    '<div data-crew-content><p class="ecocrew-muted">Loading your crew…</p></div>',
+    '<div data-crew-content aria-busy="true">' + loadingState('Loading your crew') + '</div>',
     'Join or create a crew, follow its shared streak and weekly mission, react to activity, and invite people you know.',
   );
   const content = page.querySelector('[data-crew-content]');
@@ -157,6 +158,7 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
     content.innerHTML = overview.membership
       ? crewContent(overview)
       : membershipActions() + emptyCrew();
+    content.setAttribute('aria-busy', 'false');
     bindCrewActions(overview);
   }
 
@@ -169,6 +171,8 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
   }
 
   async function loadCrew() {
+    content.setAttribute('aria-busy', 'true');
+    content.innerHTML = loadingState('Loading your crew');
     try {
       const overview = await ecoCrewService.getCrewOverview();
       renderCrewOverview(overview);
@@ -182,6 +186,7 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
         'We could not load your crew yet. Please try again in a moment.' +
         '</p>' +
         membershipActions();
+      content.setAttribute('aria-busy', 'false');
       bindCrewActions({ membership: null });
     }
   }

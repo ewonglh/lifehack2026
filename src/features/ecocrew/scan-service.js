@@ -25,6 +25,28 @@ function singaporeWeekKey(date = new Date()) {
   return localDate.toISOString().slice(0, 10);
 }
 
+function nextCalendarDay(day) {
+  const date = new Date(day + 'T00:00:00Z');
+  if (Number.isNaN(date.getTime())) return null;
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function advancePersonalStreak(personalStreak, taskDay) {
+  const previous = personalStreak || {};
+  const current =
+    previous.lastCompletedDay === taskDay
+      ? Number(previous.current || 0)
+      : previous.lastCompletedDay && nextCalendarDay(previous.lastCompletedDay) === taskDay
+        ? Number(previous.current || 0) + 1
+        : 1;
+  return {
+    current,
+    longest: Math.max(Number(previous.longest || 0), current),
+    lastCompletedDay: taskDay,
+  };
+}
+
 function initialState() {
   return {
     dailyPoints: 0,
@@ -32,6 +54,7 @@ function initialState() {
     dailyCap: 3,
     lifetimePoints: 1280,
     weeklyPoints: crew.weeklyPoints,
+    personalStreak: { current: 0, longest: 0, lastCompletedDay: null },
     dailyTaskDay: singaporeDateKey(),
     submittedTaskDay: null,
     pendingSubmissionId: null,
@@ -205,6 +228,7 @@ function awardDemoResult(state, pending) {
     ? Math.min(crew.mission.target, state.missionProgress + actionCompletion)
     : state.missionProgress;
   const confirmedAt = new Date().toISOString();
+  const personalStreak = advancePersonalStreak(state.personalStreak, pending.taskDay);
   const post = {
     id: 'demo-post-' + Date.now(),
     scanEventId: pending.scanEventId,
@@ -231,7 +255,7 @@ function awardDemoResult(state, pending) {
     awarded,
     points: { actionCompletion, preparation, dailyBonus, total },
     dailyPointsRemaining: Math.max(0, dailyPointsCap - dailyPoints),
-    streak: { current: 1, longest: 1 },
+    streak: { current: personalStreak.current, longest: personalStreak.longest },
     crewUpdate: membership
       ? {
           weeklyPoints: state.weeklyPoints + total,
@@ -256,6 +280,7 @@ function awardDemoResult(state, pending) {
       dailyPoints,
       lifetimePoints: state.lifetimePoints + total,
       weeklyPoints: membership ? state.weeklyPoints + total : state.weeklyPoints,
+      personalStreak,
       missionProgress,
       submittedTaskDay: pending.taskDay,
       pendingSubmissionId: null,

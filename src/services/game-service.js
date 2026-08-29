@@ -171,10 +171,14 @@ export const gameService = {
   async getProfileStats() {
     if (!supabase) {
       const state = getMockState();
-      return { lifetimePoints: state.lifetimePoints || 0, bestStreak: state.bestStreak || 0 };
+      return {
+        lifetimePoints: state.lifetimePoints || 0,
+        currentStreak: state.personalStreak?.current || 0,
+        bestStreak: state.personalStreak?.longest || state.bestStreak || 0,
+      };
     }
     const actor = (await supabase.auth.getUser()).data.user?.id;
-    if (!actor) return { lifetimePoints: 0, bestStreak: 0 };
+    if (!actor) return { lifetimePoints: 0, currentStreak: 0, bestStreak: 0 };
     const [{ data: progress, error: progressError }, { data: streak, error: streakError }] =
       await Promise.all([
         supabase
@@ -184,7 +188,7 @@ export const gameService = {
           .maybeSingle(),
         supabase
           .from('user_streaks')
-          .select('longest_streak')
+          .select('current_streak, longest_streak')
           .eq('profile_id', actor)
           .maybeSingle(),
       ]);
@@ -192,6 +196,7 @@ export const gameService = {
     if (streakError) throw streakError;
     return {
       lifetimePoints: Number(progress?.lifetime_xp || 0),
+      currentStreak: Number(streak?.current_streak || 0),
       bestStreak: Number(streak?.longest_streak || 0),
     };
   },

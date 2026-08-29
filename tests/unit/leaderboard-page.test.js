@@ -165,4 +165,54 @@ describe('league page states', () => {
     queueButton.click();
     await vi.waitFor(() => expect(queueForLeague).toHaveBeenCalledWith('crew-1'));
   });
+
+  it('shows the league loader until overview data is fetched', async () => {
+    let resolveOverview;
+    getLeagueOverview.mockReturnValue(
+      new Promise((resolve) => {
+        resolveOverview = resolve;
+      }),
+    );
+    const rendered = renderLeaderboardPage();
+    const pending = rendered.afterRender();
+
+    expect(
+      rendered.element.querySelector('[data-league-loading] [data-loading-state]'),
+    ).not.toBeNull();
+    expect(rendered.element.querySelector('[data-league-content]').getAttribute('aria-busy')).toBe(
+      'true',
+    );
+
+    resolveOverview({ eligibility: 'ranked', rows: [], weeklyPoints: 0 });
+    await pending;
+
+    expect(rendered.element.querySelector('[data-league-loading]').hidden).toBe(true);
+    expect(rendered.element.querySelector('[data-league-content]').getAttribute('aria-busy')).toBe(
+      'false',
+    );
+  });
+
+  it('keeps the cosmetics loader independent from the league overview', async () => {
+    let resolveCosmetics;
+    getLeagueOverview.mockResolvedValue({ eligibility: 'ranked', rows: [], weeklyPoints: 0 });
+    getCosmetics.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCosmetics = resolve;
+      }),
+    );
+    const rendered = renderLeaderboardPage();
+    const pending = rendered.afterRender();
+
+    await vi.waitFor(() => expect(getCosmetics).toHaveBeenCalled());
+    expect(rendered.element.querySelector('[data-league-content]').hidden).toBe(false);
+    expect(rendered.element.querySelector('[data-cosmetics] [data-loading-state]')).not.toBeNull();
+
+    resolveCosmetics([]);
+    await pending;
+
+    expect(rendered.element.querySelector('[data-cosmetics] [data-loading-state]')).toBeNull();
+    expect(rendered.element.querySelector('[data-cosmetics]').getAttribute('aria-busy')).toBe(
+      'false',
+    );
+  });
 });

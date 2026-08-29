@@ -66,7 +66,7 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
       loadingState('Loading today’s action') +
       '</div><div data-task-content hidden><p class="ecocrew-kicker" data-task-title>TODAY’S ACTION</p><h2 data-task-instruction>Today’s action</h2></div></div>' +
       '<div class="ecocrew-upload" data-upload-area data-task-control hidden>' +
-      '<input id="item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" class="visually-hidden">' +
+      '<input id="item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" class="visually-hidden" disabled>' +
       '<label for="item-photo" class="ecocrew-upload__label"><span class="ecocrew-upload__icon" aria-hidden="true">⌁</span><strong>Take a photo of the empty bottle</strong><small>Use your camera or choose an image</small></label>' +
       '<img class="ecocrew-preview d-none" alt="Selected empty bottle preview">' +
       '</div>' +

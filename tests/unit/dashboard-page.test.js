@@ -40,6 +40,12 @@ describe('dashboard mock progress states', () => {
       'join a crew to track this',
     );
     expect(rendered.element.querySelector('[data-dashboard-today]').textContent).toBe('0');
+    expect(rendered.element.querySelector('[data-dashboard-personal-streak]').textContent).toBe(
+      '0',
+    );
+    expect(rendered.element.querySelector('[data-dashboard-day-marker]').textContent).toContain(
+      '#241',
+    );
     expect(rendered.element.querySelector('[data-dashboard-crew-card]').hidden).toBe(false);
     expect(rendered.element.querySelector('[data-dashboard-mission]').textContent).toBe(
       'Join a crew to unlock the weekly mission.',
@@ -56,9 +62,10 @@ describe('dashboard mock progress states', () => {
   it('shows crew weekly points after membership is present', async () => {
     getDashboardData.mockResolvedValue({
       task,
-      crew: { membership: { crewId: 'demo-crew' } },
+      crew: { membership: { crewId: 'demo-crew' }, streak: 4 },
       weeklyPoints: 745,
       dailyPoints: 0,
+      personalStreak: { current: 7, longest: 9 },
       todaySubmitted: false,
     });
     const rendered = renderDashboardPage();
@@ -69,6 +76,10 @@ describe('dashboard mock progress states', () => {
     expect(rendered.element.querySelector('[data-dashboard-weekly-label]').textContent).toBe(
       'this league week',
     );
+    expect(rendered.element.querySelector('[data-dashboard-personal-streak]').textContent).toBe(
+      '7 🔥',
+    );
+    expect(rendered.element.querySelector('[data-dashboard-streak]').textContent).toBe('4 🔥');
   });
 
   it('routes the completed dashboard CTA to the saved result', async () => {
@@ -87,7 +98,7 @@ describe('dashboard mock progress states', () => {
     const button = rendered.element.querySelector('[data-action="sort"]');
     button.click();
 
-    expect(button.textContent).toBe('View today’s result');
+    expect(button.textContent).toBe('View #241 result');
     expect(navigate).toHaveBeenCalledWith('/result/submission-1');
   });
 
@@ -109,7 +120,7 @@ describe('dashboard mock progress states', () => {
       'Empty and recycle one plastic bottle.',
     );
     expect(rendered.element.querySelector('[data-action="sort"]').textContent).toBe(
-      'Finish today’s action',
+      'Finish #241 check-in',
     );
     expect(rendered.element.querySelector('[data-action="sort"]').dataset.destination).toBe(
       '/result/pending-1',
@@ -126,5 +137,32 @@ describe('dashboard mock progress states', () => {
     const taskMeta = rendered.element.querySelector('[data-dashboard-task-meta]').textContent;
     expect(taskMeta).toContain('daily task');
     expect(taskMeta).not.toContain('crew mission');
+  });
+
+  it('shows an animated loader and guards the action while dashboard data is pending', async () => {
+    let resolveDashboard;
+    getDashboardData.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDashboard = resolve;
+      }),
+    );
+    const rendered = renderDashboardPage();
+    const loading = rendered.element.querySelector('[data-dashboard-task-loading]');
+    const pending = rendered.afterRender();
+
+    expect(loading.hidden).toBe(false);
+    expect(
+      rendered.element.querySelector('[data-dashboard-task-region]').getAttribute('aria-busy'),
+    ).toBe('true');
+    expect(rendered.element.querySelector('[data-action="sort"]').disabled).toBe(true);
+
+    resolveDashboard({ task, crew: { membership: null }, dailyPoints: 0 });
+    await pending;
+
+    expect(loading.hidden).toBe(true);
+    expect(
+      rendered.element.querySelector('[data-dashboard-task-region]').getAttribute('aria-busy'),
+    ).toBe('false');
+    expect(rendered.element.querySelector('[data-action="sort"]').disabled).toBe(false);
   });
 });

@@ -166,4 +166,33 @@ describe('today’s action photo flow', () => {
     );
     expect(rendered.element.querySelector('[data-check-action]').disabled).toBe(false);
   });
+
+  it('shows a loader and guards photo controls while the task is pending', async () => {
+    let resolveTask;
+    getDailyTask.mockReturnValue(
+      new Promise((resolve) => {
+        resolveTask = resolve;
+      }),
+    );
+    const rendered = renderSubmitPage();
+    const pending = rendered.afterRender();
+
+    expect(rendered.element.querySelector('[data-task-loading]').hidden).toBe(false);
+    expect(rendered.element.querySelector('[data-task-region]').getAttribute('aria-busy')).toBe(
+      'true',
+    );
+    expect(rendered.element.querySelector('#item-photo').disabled).toBe(true);
+    expect(rendered.element.querySelector('[data-upload-area]').hidden).toBe(true);
+
+    getLastResult.mockReturnValue(null);
+    resolveTask(task);
+    await pending;
+
+    expect(rendered.element.querySelector('[data-task-loading]').hidden).toBe(true);
+    expect(rendered.element.querySelector('[data-task-region]').getAttribute('aria-busy')).toBe(
+      'false',
+    );
+    expect(rendered.element.querySelector('#item-photo').disabled).toBe(false);
+    expect(rendered.element.querySelector('[data-upload-area]').hidden).toBe(false);
+  });
 });

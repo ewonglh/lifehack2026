@@ -1,4 +1,5 @@
 import { ecoCrewService } from '../services/ecocrew-service.js';
+import { loadingState } from '../components/loading-state.js';
 import {
   appShell,
   escapeHtml,
@@ -130,16 +131,29 @@ export function renderProfilePage({ session, sessionState, navigate = defaultNav
   const page = appShell(
     'Your eco identity',
     'Profile',
-    '<div data-profile-content><p class="ecocrew-muted">Loading your profile…</p></div>',
+    '<div data-profile-content aria-busy="true">' + loadingState('Loading your profile') + '</div>',
     'View your display name, lifetime progress, cosmetics, and daily task history. Photos remain private by default.',
   );
   const userId = sessionState?.session?.user?.id || 'mock-user';
   let latestData;
 
   async function loadProfile() {
-    latestData = await ecoCrewService.getProfileData(userId);
-    page.querySelector('[data-profile-content]').outerHTML = profileContent(latestData);
-    bindProfileActions();
+    const target = page.querySelector('[data-profile-content]');
+    target.setAttribute('aria-busy', 'true');
+    target.innerHTML = loadingState('Loading your profile');
+    try {
+      latestData = await ecoCrewService.getProfileData(userId);
+      target.outerHTML = profileContent(latestData);
+      const loadedTarget = page.querySelector('[data-profile-content]');
+      loadedTarget.setAttribute('aria-busy', 'false');
+      bindProfileActions();
+    } catch (exception) {
+      target.innerHTML =
+        '<p class="ecocrew-form-error" role="alert">' +
+        escapeHtml(exception.message || 'We could not load your profile yet.') +
+        '</p>';
+      target.setAttribute('aria-busy', 'false');
+    }
   }
 
   function bindProfileActions() {

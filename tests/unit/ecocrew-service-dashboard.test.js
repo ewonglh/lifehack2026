@@ -19,6 +19,7 @@ describe('mock dashboard data', () => {
     await expect(ecoCrewService.getDashboardData()).resolves.toMatchObject({
       weeklyPoints: null,
       todaySubmitted: false,
+      personalStreak: { current: 0, longest: 0 },
     });
   });
 
@@ -28,6 +29,7 @@ describe('mock dashboard data', () => {
     await expect(ecoCrewService.getDashboardData()).resolves.toMatchObject({
       weeklyPoints: 745,
       todaySubmitted: false,
+      personalStreak: { current: 0, longest: 0 },
     });
   });
 });

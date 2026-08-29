@@ -70,4 +70,49 @@ describe('profile cosmetics and post history', () => {
 
     await vi.waitFor(() => expect(equipCosmetic).toHaveBeenCalledWith('moss'));
   });
+
+  it('shows a loader until profile data is available', async () => {
+    let resolveProfile;
+    getProfileData.mockReturnValue(
+      new Promise((resolve) => {
+        resolveProfile = resolve;
+      }),
+    );
+    const rendered = renderProfilePage({ sessionState: { session: { user: { id: 'user-1' } } } });
+    const pending = rendered.afterRender();
+
+    expect(
+      rendered.element.querySelector('[data-profile-content] [data-loading-state]'),
+    ).not.toBeNull();
+    expect(rendered.element.querySelector('[data-profile-content]').getAttribute('aria-busy')).toBe(
+      'true',
+    );
+    expect(rendered.element.querySelector('[data-edit]')).toBeNull();
+
+    resolveProfile(profileData);
+    await pending;
+
+    expect(
+      rendered.element.querySelector('[data-profile-content] [data-loading-state]'),
+    ).toBeNull();
+    expect(rendered.element.querySelector('[data-profile-content]').getAttribute('aria-busy')).toBe(
+      'false',
+    );
+    expect(rendered.element.querySelector('[data-edit]')).not.toBeNull();
+  });
+
+  it('replaces the profile loader with an accessible error', async () => {
+    getProfileData.mockRejectedValue(new Error('Profile service is unavailable.'));
+    const rendered = renderProfilePage();
+
+    await rendered.afterRender();
+
+    expect(rendered.element.querySelector('[data-loading-state]')).toBeNull();
+    expect(rendered.element.querySelector('[data-profile-content]').getAttribute('aria-busy')).toBe(
+      'false',
+    );
+    expect(
+      rendered.element.querySelector('[data-profile-content] [role="alert"]').textContent,
+    ).toContain('Profile service is unavailable.');
+  });
 });

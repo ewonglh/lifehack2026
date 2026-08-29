@@ -57,9 +57,11 @@ describe('demo action check-in rules', () => {
     expect(confirmed).toMatchObject({
       outcome: 'completed',
       behaviorCheckIn: { status: 'confirmed', selfReported: true },
+      streak: { current: 1, longest: 1 },
     });
     expect(confirmed.points.total).toBeGreaterThan(0);
     expect(getDemoState().posts).toHaveLength(1);
+    expect(getDemoState().personalStreak).toMatchObject({ current: 1, longest: 1 });
     expect(getDemoState().weeklyPoints).toBe(before.weeklyPoints);
     expect(getDemoState().missionProgress).toBe(before.missionProgress);
   });
@@ -124,6 +126,10 @@ describe('demo action check-in rules', () => {
       }),
     ).resolves.toMatchObject({ taskDay: nextTask.taskDay, outcome: 'awaiting_check_in' });
     expect(getDemoState().dailyScans).toBe(0);
+
+    const secondSubmissionId = getDemoState().pendingSubmissionId;
+    confirmDemoAction(secondSubmissionId);
+    expect(getDemoState().personalStreak).toMatchObject({ current: 2, longest: 2 });
   });
 
   it.each([

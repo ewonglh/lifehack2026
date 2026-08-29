@@ -97,4 +97,29 @@ describe('submission result presentation', () => {
     );
     expect(rendered.element.querySelector('[data-result-reason] img')).toBeNull();
   });
+
+  it('shows a loader until the result is fetched', async () => {
+    let resolveResult;
+    getLastResult.mockReturnValue(
+      new Promise((resolve) => {
+        resolveResult = resolve;
+      }),
+    );
+    const rendered = renderSubmissionDetailPage();
+    const pending = rendered.afterRender();
+
+    expect(rendered.element.querySelector('[data-result-loading]').hidden).toBe(false);
+    expect(rendered.element.querySelector('[data-result-card]').getAttribute('aria-busy')).toBe(
+      'true',
+    );
+    expect(rendered.element.querySelector('[data-action-checkin]').hidden).toBe(true);
+
+    resolveResult({ isCorrect: false, classification: {}, points: { total: 0 } });
+    await pending;
+
+    expect(rendered.element.querySelector('[data-result-loading]').hidden).toBe(true);
+    expect(rendered.element.querySelector('[data-result-card]').getAttribute('aria-busy')).toBe(
+      'false',
+    );
+  });
 });
