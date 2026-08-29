@@ -17,7 +17,7 @@ function inviteCode(): string {
 
 function knownError(error: { message: string }): ApiError {
   const code = error.message.match(
-    /(ALREADY_IN_SQUAD|SQUAD_FULL|INVALID_INVITE|SQUAD_OWNER_REQUIRED|SQUAD_MEMBERSHIP_REQUIRED|MEMBER_NOT_FOUND|OWNER_TRANSFER_REQUIRED|INVALID_TIMEZONE|INVALID_SQUAD_NAME)/,
+    /(ALREADY_IN_SQUAD|SQUAD_FULL|INVALID_INVITE|SQUAD_OWNER_REQUIRED|SQUAD_MEMBERSHIP_REQUIRED|MEMBER_NOT_FOUND|OWNER_TRANSFER_REQUIRED|INVALID_TIMEZONE|INVALID_SQUAD_NAME|MISSION_UNAVAILABLE)/,
   )?.[1];
   const statuses: Record<string, number> = {
     ALREADY_IN_SQUAD: 409,
@@ -27,6 +27,7 @@ function knownError(error: { message: string }): ApiError {
     SQUAD_MEMBERSHIP_REQUIRED: 403,
     MEMBER_NOT_FOUND: 404,
     OWNER_TRANSFER_REQUIRED: 409,
+    MISSION_UNAVAILABLE: 503,
   };
   return new ApiError(
     code ? (statuses[code] ?? 400) : 500,

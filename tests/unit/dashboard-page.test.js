@@ -39,6 +39,17 @@ describe('dashboard mock progress states', () => {
     expect(rendered.element.querySelector('[data-dashboard-weekly-label]').textContent).toBe(
       'join a crew to track this',
     );
+    expect(rendered.element.querySelector('[data-dashboard-today]').textContent).toBe('0');
+    expect(rendered.element.querySelector('[data-dashboard-crew-card]').hidden).toBe(false);
+    expect(rendered.element.querySelector('[data-dashboard-mission]').textContent).toBe(
+      'Join a crew to unlock the weekly mission.',
+    );
+    expect(rendered.element.querySelector('[data-dashboard-progress]').textContent).toContain(
+      'Weekly mission progress will appear after you join a crew.',
+    );
+    expect(rendered.element.querySelector('[data-dashboard-crew-card] [data-action="crew"]')).toBe(
+      null,
+    );
     expect(rendered.element.textContent).not.toContain('745');
   });
 
@@ -78,5 +89,42 @@ describe('dashboard mock progress states', () => {
 
     expect(button.textContent).toBe('View today’s result');
     expect(navigate).toHaveBeenCalledWith('/result/submission-1');
+  });
+
+  it('offers a resumable CTA for a pending check-in without requiring a crew', async () => {
+    getDashboardData.mockResolvedValue({
+      task,
+      crew: { membership: null },
+      weeklyPoints: null,
+      dailyPoints: 0,
+      todaySubmitted: false,
+      todayActionStatus: 'pending',
+      todaySubmissionId: 'pending-1',
+    });
+    const rendered = renderDashboardPage();
+
+    await rendered.afterRender();
+
+    expect(rendered.element.querySelector('h2').textContent).toContain(
+      'Empty and recycle one plastic bottle.',
+    );
+    expect(rendered.element.querySelector('[data-action="sort"]').textContent).toBe(
+      'Finish today’s action',
+    );
+    expect(rendered.element.querySelector('[data-action="sort"]').dataset.destination).toBe(
+      '/result/pending-1',
+    );
+    expect(rendered.element.querySelector('[data-dashboard-no-crew]').hidden).toBe(false);
+  });
+
+  it('keeps crew errors out of the individual daily-task CTA', async () => {
+    getDashboardData.mockRejectedValue(new Error('The crew mission is unavailable.'));
+    const rendered = renderDashboardPage();
+
+    await rendered.afterRender();
+
+    const taskMeta = rendered.element.querySelector('[data-dashboard-task-meta]').textContent;
+    expect(taskMeta).toContain('daily task');
+    expect(taskMeta).not.toContain('crew mission');
   });
 });

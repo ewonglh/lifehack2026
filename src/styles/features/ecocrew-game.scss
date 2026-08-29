@@ -90,6 +90,28 @@
   margin: 1rem 0;
 }
 
+.ecocrew-demo-fixtures { padding: 1rem 0 .25rem; }
+.ecocrew-demo-fixtures__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.ecocrew-demo-fixtures .btn { min-height: 3rem; padding: .6rem .45rem; font-size: .78rem; }
+.ecocrew-join-card { text-align: center; }
+.ecocrew-join-card__badge { width: 3.5rem; height: 3.5rem; display: grid; place-items: center; margin: 0 auto 1rem; border: 2px solid var(--eco-ink); border-radius: 50%; background: var(--eco-lime); font-size: 1.8rem; }
+.ecocrew-invite-code { margin: 1.25rem 0; padding: .8rem 1rem; border: 2px dashed var(--eco-moss); border-radius: 1rem; background: #e7f2e9; color: var(--eco-ink); font-size: 1.5rem; font-weight: 900; letter-spacing: .2em; }
+.ecocrew-join-note { margin: .8rem 0 0; color: #536862; font-size: .8rem; }
+.ecocrew-measurement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin-top: 1rem; }
+.ecocrew-measurement-grid article { padding: 1rem; border: 2px solid var(--eco-ink); border-radius: 1rem; background: #f5faef; }
+.ecocrew-measurement-grid strong { display: block; font-size: 2.5rem; line-height: 1; }
+.ecocrew-measurement-grid span { display: block; margin-top: .5rem; color: #536862; font-size: .8rem; }
+.ecocrew-measurement-target { display: grid; gap: .25rem; margin-top: 1rem; padding: .9rem 1rem; border-radius: 1rem; background: #f0dbff; }
+.ecocrew-measurement-target span { color: #536862; font-size: .85rem; }
+.ecocrew-invite-menu__panel { min-width: 12rem; }
+.ecocrew-invite-menu__panel button { min-height: 2.75rem; }
+
+@media (width <= 390px) {
+  .ecocrew-demo-fixtures__grid { grid-template-columns: 1fr; }
+  .ecocrew-card__top, .ecocrew-actions { align-items: stretch; flex-direction: column; }
+  .ecocrew-actions .btn { width: 100%; }
+}
+
 .ecocrew-result-breakdown summary {
   cursor: pointer;
   font-weight: 800;
@@ -100,17 +122,12 @@
   color: #536862;
 }
 
-.ecocrew-task-prompt h2,
-.ecocrew-task-prompt p {
+.ecocrew-task-prompt h2 {
   margin-bottom: .25rem;
 }
 
 .ecocrew-task-prompt h2 {
   font-size: clamp(1.35rem, 5vw, 1.8rem);
-}
-
-.ecocrew-task-prompt p:last-child {
-  color: #536862;
 }
 
 .ecocrew-crew-title-actions {
@@ -159,4 +176,129 @@
   .ecocrew-profile-items {
     flex-wrap: wrap;
   }
+}
+
+.ecocrew-landing-page {
+  --eco-ink: #173d36;
+  --eco-moss: #24725a;
+  --eco-lime: #d7f25a;
+  --eco-cream: #f7f4ea;
+  max-width: 44rem;
+  min-height: 100vh;
+  padding: 1.25rem;
+  margin: auto;
+  color: var(--eco-ink);
+  background: var(--eco-cream);
+}
+
+.ecocrew-landing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ecocrew-landing-hero {
+  padding: clamp(1.5rem, 7vw, 3rem);
+  margin-top: 4rem;
+  border: 2px solid var(--eco-ink);
+  border-radius: 1.5rem;
+  background: var(--eco-moss);
+  color: white;
+  box-shadow: 5px 5px 0 var(--eco-ink);
+}
+
+.ecocrew-landing-hero h1 {
+  max-width: 34rem;
+  margin: .5rem 0 1rem;
+  font-size: clamp(2.4rem, 9vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -.06em;
+}
+
+.ecocrew-landing-hero__lead {
+  max-width: 34rem;
+  margin-bottom: 1.5rem;
+  color: #e7f2e9;
+  line-height: 1.55;
+}
+
+.ecocrew-landing-steps {
+  display: grid;
+  gap: .75rem;
+  margin-top: 1.5rem;
+}
+
+.ecocrew-landing-steps article {
+  display: flex;
+  align-items: flex-start;
+  gap: .8rem;
+  padding: 1rem;
+  border: 2px solid var(--eco-ink);
+  border-radius: 1rem;
+  background: white;
+}
+
+.ecocrew-landing-steps article > span {
+  display: grid;
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--eco-lime);
+  font-weight: 800;
+}
+
+.ecocrew-landing-steps h2,
+.ecocrew-landing-steps p {
+  margin: 0;
+}
+
+.ecocrew-landing-steps p {
+  margin-top: .2rem;
+  color: #536862;
+  font-size: .86rem;
+}
+
+.ecocrew-landing-note {
+  margin: 1.25rem 0 0;
+  color: #536862;
+  font-size: .85rem;
+  text-align: center;
+}
+
+.ecocrew-action-checkin {
+  border-color: var(--eco-moss);
+  background: #e7f2e9;
+}
+
+.ecocrew-action-checkin .ecocrew-actions {
+  justify-content: flex-start;
+  margin: 1rem 0;
+}
+
+.ecocrew-action-checkin .ecocrew-muted {
+  margin-bottom: 0;
+  font-size: .78rem;
+}
+
+.ecocrew-dashboard-no-crew {
+  background: #e7f2e9;
+}
+
+.ecocrew-demo-fixtures {
+  padding: 1rem 0 .25rem;
+}
+
+.ecocrew-demo-fixtures summary {
+  color: var(--eco-moss);
+  cursor: pointer;
+  font-size: .84rem;
+  font-weight: 800;
+}
+
+.ecocrew-demo-fixtures > p {
+  margin: .6rem 0;
+  font-size: .8rem;
 }

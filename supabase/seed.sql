@@ -3,7 +3,9 @@ values (
   'mvp-v1',
   jsonb_build_object(
     'confidenceThreshold', 0.70,
+    'actionCompleted', 10,
     'correctSort', 10,
+    'taskSimilarityThreshold', 0.75,
     'preparation', 5,
     'dailyFirst', 10,
     'participation', 5,
@@ -56,9 +58,9 @@ values (
   '20000000-0000-4000-8000-000000000001',
   (now() at time zone 'Asia/Singapore')::date,
   'en-SG',
-  'Sort today’s item',
+  'Clean Bottle Check',
   'Glass Guardians',
-  'Photograph one household item and choose its disposal bin.',
+  'The image shows a single use plastic bottle without any liquid inside held up to a recycling bin.',
   'sg-demo-v1',
   'mvp-v1',
   true
@@ -92,6 +94,10 @@ declare
     'confidence', 0.86,
     'localeRuleVersion', 'sg-demo-v1',
     'explanation', 'The image appears to show a PET beverage bottle.',
+    'taskPrompt', 'The image shows a single use plastic bottle without any liquid inside held up to a recycling bin.',
+    'promptSimilarity', 0.96,
+    'taskSatisfied', true,
+    'failureReason', null,
     'matchesTask', true,
     'taskConfidence', 0.95,
     'taskReason', 'The demo image matches the assigned bottle task.'
@@ -194,6 +200,17 @@ begin
   set active = (id = 'recycle-plastic-bottle')
   where locale = 'en-SG';
 
+  insert into public.mission_catalog (id, title, theme, target, active)
+  values
+    ('glass-guardians', 'Glass Guardians', 'Glass', 20, true),
+    ('landfill-monster', 'Defeat the Landfill Monster', 'Waste reduction', 25, true),
+    ('plastic-patrol', 'Plastic Patrol', 'Plastic', 20, true)
+  on conflict (id) do update set
+    title = excluded.title,
+    theme = excluded.theme,
+    target = excluded.target,
+    active = excluded.active;
+
   update public.mission_catalog
   set target = 50, active = true
   where id = 'glass-guardians';
@@ -223,7 +240,7 @@ begin
 
   insert into public.submissions (
     id, profile_id, squad_id, challenge_id, image_path, task_id, task_day,
-    model_result, user_bin, final_bin, confidence, verification_status, points,
+    model_result, user_bin, final_bin, confidence, verification_status, behavior_status, behavior_confirmed_at, points,
     result_payload, idempotency_key, matches_task, validation_reason, league_id,
     submitted_at, created_at
   )
@@ -240,6 +257,8 @@ begin
     'recycle',
     0.860,
     'verified',
+    'confirmed',
+    v_submission_at,
     25,
     jsonb_build_object(
       'submissionId', 'd0000000-0000-4000-8000-000000000001',
@@ -247,15 +266,16 @@ begin
       'taskId', 'recycle-plastic-bottle',
       'taskDay', v_day,
       'classification', v_classification,
-      'outcome', 'confirmed',
+      'outcome', 'completed',
       'validated', true,
-      'userSelectedBin', 'recycle',
+      'photoValidated', true,
+      'behaviorCheckIn', jsonb_build_object('action', 'recycle_bottle', 'status', 'confirmed', 'selfReported', true, 'confirmedAt', v_submission_at),
       'awarded', jsonb_build_array(
-        jsonb_build_object('actionType', 'correct_sort', 'points', 10),
+        jsonb_build_object('actionType', 'action_completed', 'points', 10),
         jsonb_build_object('actionType', 'prep_step', 'points', 5),
         jsonb_build_object('actionType', 'daily_first', 'points', 10)
       ),
-      'points', jsonb_build_object('correctBin', 10, 'preparation', 5, 'dailyBonus', 10, 'total', 25),
+      'points', jsonb_build_object('actionCompletion', 10, 'preparation', 5, 'dailyBonus', 10, 'total', 25),
       'streak', jsonb_build_object('current', 6, 'longest', 7),
       'duplicate', false
     ),
@@ -274,6 +294,8 @@ begin
     final_bin = excluded.final_bin,
     confidence = excluded.confidence,
     verification_status = excluded.verification_status,
+    behavior_status = excluded.behavior_status,
+    behavior_confirmed_at = excluded.behavior_confirmed_at,
     points = excluded.points,
     result_payload = excluded.result_payload,
     idempotency_key = excluded.idempotency_key,
@@ -287,7 +309,7 @@ begin
     scoring_rule_version, occurred_at
   )
   values
-    ('d1000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', null, 'd0000000-0000-4000-8000-000000000001', 'correct_sort', 10, 'mvp-v1', v_submission_at),
+    ('d1000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', null, 'd0000000-0000-4000-8000-000000000001', 'action_completed', 10, 'mvp-v1', v_submission_at),
     ('d1000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', null, 'd0000000-0000-4000-8000-000000000001', 'prep_step', 5, 'mvp-v1', v_submission_at),
     ('d1000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000001', null, 'd0000000-0000-4000-8000-000000000001', 'daily_first', 10, 'mvp-v1', v_submission_at)
   on conflict (submission_id, action_type) do update set
@@ -407,6 +429,38 @@ begin
     ('d3000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001', '👏')
   on conflict (activity_id, profile_id, emoji) do nothing;
 
+  update public.task_catalog
+  set
+    title = 'Clean Bottle Check',
+    instruction = 'Empty a single-use plastic bottle, recycle it, and take a photo to confirm the action.',
+    prompt = 'The image shows a single use plastic bottle without any liquid inside held up to a recycling bin.',
+    locale_rule_version = 'sg-demo-v1'
+  where id = 'recycle-plastic-bottle';
+
+  insert into public.measurement_checks (
+    id, profile_id, phase, scenario_id, selected_bin, prep_confirmed,
+    validated, prompt_similarity, self_reported, action_confirmed, is_demo, completed_at
+  )
+  values
+    ('e4000000-0000-4000-8000-000000000001', null, 'baseline', 'bottle-1', 'recycle', true, true, .82, true, true, true, now() - interval '8 days'),
+    ('e4000000-0000-4000-8000-000000000002', null, 'baseline', 'bottle-2', 'landfill', false, false, .41, false, false, true, now() - interval '8 days'),
+    ('e4000000-0000-4000-8000-000000000003', null, 'baseline', 'bottle-3', 'recycle', false, false, .54, false, false, true, now() - interval '8 days'),
+    ('e4000000-0000-4000-8000-000000000004', null, 'baseline', 'bottle-4', 'compost', false, false, .28, false, false, true, now() - interval '8 days'),
+    ('e4000000-0000-4000-8000-000000000005', null, 'follow_up', 'bottle-1', 'recycle', true, true, .95, true, true, true, now() - interval '1 day'),
+    ('e4000000-0000-4000-8000-000000000006', null, 'follow_up', 'bottle-2', 'recycle', true, true, .93, true, true, true, now() - interval '1 day'),
+    ('e4000000-0000-4000-8000-000000000007', null, 'follow_up', 'bottle-3', 'landfill', false, false, .62, false, false, true, now() - interval '1 day'),
+    ('e4000000-0000-4000-8000-000000000008', null, 'follow_up', 'bottle-4', 'recycle', true, true, .91, true, true, true, now() - interval '1 day')
+  on conflict (id) do update set
+    phase = excluded.phase,
+    selected_bin = excluded.selected_bin,
+    prep_confirmed = excluded.prep_confirmed,
+    validated = excluded.validated,
+    prompt_similarity = excluded.prompt_similarity,
+    self_reported = excluded.self_reported,
+    action_confirmed = excluded.action_confirmed,
+    is_demo = excluded.is_demo,
+    completed_at = excluded.completed_at;
+
   insert into public.leagues (
     id, owner_squad_id, name, starts_at, ends_at, max_squads, status, week_key, matched_at
   )
@@ -445,5 +499,48 @@ begin
     final_rank = null,
     streak_days = 0,
     streak_multiplier = 0;
+
+  if not exists (
+    select 1
+    from public.squads
+    where id = 'b0000000-0000-4000-8000-000000000001'
+      and name = 'Glass Guardians'
+  ) then
+    raise exception 'Seed assertion failed: Glass Guardians crew is missing';
+  end if;
+  if (
+    select count(*)
+    from public.squad_members
+    where squad_id = 'b0000000-0000-4000-8000-000000000001'
+      and status = 'active'
+  ) <> 3 then
+    raise exception 'Seed assertion failed: Glass Guardians active members are incomplete';
+  end if;
+  if not exists (
+    select 1
+    from public.squad_invites
+    where id = 'b1000000-0000-4000-8000-000000000001'
+      and squad_id = 'b0000000-0000-4000-8000-000000000001'
+      and token_hash = encode(digest('ECO123', 'sha256'), 'hex')
+      and revoked_at is null
+  ) then
+    raise exception 'Seed assertion failed: ECO123 invite is missing';
+  end if;
+  if not exists (
+    select 1
+    from public.mission_catalog
+    where id = 'glass-guardians' and active
+  ) then
+    raise exception 'Seed assertion failed: Glass Guardians mission catalog row is missing';
+  end if;
+  if not exists (
+    select 1
+    from public.squad_daily_missions
+    where squad_id = 'b0000000-0000-4000-8000-000000000001'
+      and mission_id = 'glass-guardians'
+      and mission_day = v_day
+  ) then
+    raise exception 'Seed assertion failed: Glass Guardians daily mission is missing';
+  end if;
 end;
 $$;

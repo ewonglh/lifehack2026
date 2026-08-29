@@ -1,6 +1,5 @@
 import type { DisposalBin } from './validation.ts';
-import { ApiError } from './errors.ts';
-import { analyzeWithOpenAI } from './openai-analyzer.ts';
+import { analyzeWithOpenRouter } from './openai-analyzer.ts';
 
 export type ClassificationResult = {
   itemName: string;
@@ -10,9 +9,20 @@ export type ClassificationResult = {
   confidence: number;
   localeRuleVersion: string;
   explanation: string | null;
-  matchesTask?: boolean;
-  taskConfidence?: number;
-  taskReason?: string | null;
+  taskPrompt: string;
+  promptSimilarity: number;
+  taskSatisfied: boolean;
+  failureReason:
+    | 'liquid_present'
+    | 'unrelated_item'
+    | 'recycling_context_missing'
+    | 'low_confidence'
+    | 'upload_failure'
+    | 'ai_failure'
+    | null;
+  matchesTask: boolean;
+  taskConfidence: number;
+  taskReason: string | null;
 };
 
 export type PhotoInput = {
@@ -21,13 +31,14 @@ export type PhotoInput = {
   locale: string;
   localeRuleVersion: string;
   imagePath?: string;
-  task?: {
+  task: {
     prompt: string;
     targetObject: string;
     targetMaterial: string | null;
     targetAction: string;
     validationMetadata?: Record<string, unknown>;
   };
+  demoFixture?: 'liquid_bottle' | 'empty_bottle' | 'unrelated_item';
 };
 
 const demoClassification: ClassificationResult = {
@@ -38,34 +49,123 @@ const demoClassification: ClassificationResult = {
   confidence: 0.86,
   localeRuleVersion: 'sg-demo-v1',
   explanation: 'The image appears to show a PET beverage bottle.',
+  taskPrompt: '',
+  promptSimilarity: 0,
+  taskSatisfied: false,
+  failureReason: 'low_confidence',
+  matchesTask: false,
+  taskConfidence: 0,
+  taskReason: 'We could not verify the supplied image against today’s mission.',
 };
 
-export async function analyzePhoto(input: PhotoInput): Promise<ClassificationResult> {
-  const isMocked = Deno.env.get('MOCK_VLM') === 'true' || !Deno.env.get('OPENAI_API_KEY');
-  if (isMocked) {
-    const task = input.task;
+function aiFailureClassification(input: PhotoInput, taskReason: string): ClassificationResult {
+  return {
+    itemName: 'unknown item',
+    material: null,
+    recommendedBin: 'unknown',
+    preparationTip: null,
+    confidence: 0,
+    localeRuleVersion: input.localeRuleVersion,
+    explanation: 'The image could not be analyzed.',
+    taskPrompt: input.task.prompt,
+    promptSimilarity: 0,
+    taskSatisfied: false,
+    failureReason: 'ai_failure',
+    matchesTask: false,
+    taskConfidence: 0,
+    taskReason,
+  };
+}
+
+export function demoFixtureClassification(input: PhotoInput): ClassificationResult {
+  const taskPrompt = input.task?.prompt ?? '';
+  const common = {
+    localeRuleVersion: input.localeRuleVersion,
+    taskPrompt: taskPrompt ?? '',
+    promptSimilarity: input.task ? 0.96 : 0,
+    taskConfidence: input.task ? 0.96 : 0,
+  };
+
+  if (input.demoFixture === 'liquid_bottle') {
     return {
-      ...demoClassification,
-      itemName: task?.targetObject ?? demoClassification.itemName,
-      material: task?.targetMaterial ?? demoClassification.material,
-      recommendedBin: (task?.targetAction as ClassificationResult['recommendedBin']) ?? demoClassification.recommendedBin,
-      localeRuleVersion: input.localeRuleVersion,
-      matchesTask: Boolean(task),
-      taskConfidence: task ? 0.95 : 0,
-      taskReason: task ? `Demo classifier matched ${task.prompt}.` : null,
+      ...common,
+      itemName: 'plastic drink bottle with liquid',
+      material: 'PET plastic',
+      recommendedBin: 'recycle',
+      preparationTip: 'Empty the bottle before recycling.',
+      confidence: 0.96,
+      explanation: 'The bottle matches the mission, but visible liquid is still inside.',
+      taskSatisfied: false,
+      failureReason: 'liquid_present',
+      matchesTask: false,
+      taskReason: 'Empty the bottle first.',
     };
   }
 
+  if (input.demoFixture === 'unrelated_item') {
+    return {
+      ...common,
+      itemName: 'unrelated household item',
+      material: 'unknown',
+      recommendedBin: 'landfill',
+      preparationTip: null,
+      confidence: 0.94,
+      explanation:
+        'The image does not show the single-use plastic bottle required by today’s mission.',
+      taskSatisfied: false,
+      failureReason: 'unrelated_item',
+      matchesTask: false,
+      taskReason: 'That item does not match today’s mission.',
+    };
+  }
+
+  return {
+    ...common,
+    itemName: 'empty plastic drink bottle',
+    material: 'PET plastic',
+    recommendedBin: 'recycle',
+    preparationTip: 'Empty the bottle before recycling.',
+    confidence: 0.96,
+    explanation: 'The image matches an empty single-use plastic bottle ready for recycling.',
+    taskSatisfied: Boolean(input.task),
+    failureReason: input.task ? null : 'low_confidence',
+    matchesTask: Boolean(input.task),
+    taskReason: input.task ? 'The bottle and preparation state match today’s action.' : null,
+  };
+}
+
+export async function analyzePhoto(input: PhotoInput): Promise<ClassificationResult> {
+  const isMocked = Deno.env.get('MOCK_VLM') === 'true';
+  if (isMocked) {
+    if (input.demoFixture) return demoFixtureClassification(input);
+    return {
+      ...demoClassification,
+      localeRuleVersion: input.localeRuleVersion,
+      taskPrompt: input.task.prompt,
+      promptSimilarity: 0,
+      matchesTask: false,
+      taskConfidence: 0,
+      taskSatisfied: false,
+      taskReason: 'We could not verify the supplied image against today’s mission.',
+    };
+  }
+
+  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+  if (!apiKey) {
+    return aiFailureClassification(
+      input,
+      'Photo analysis is not configured. Try again or use the manual guidance.',
+    );
+  }
+
   try {
-    return await analyzeWithOpenAI(input);
+    return await analyzeWithOpenRouter(input);
   } catch (error) {
-    if (Deno.env.get('ALLOW_VLM_FALLBACK') === 'true') {
-      console.warn('Using deterministic VLM fallback.', error);
-      return { ...demoClassification, localeRuleVersion: input.localeRuleVersion };
-    }
-    throw new ApiError(503, 'MODEL_UNAVAILABLE', 'Photo analysis is temporarily unavailable.', {
-      cause: error,
-    });
+    console.warn('Live photo analysis failed.', error);
+    return aiFailureClassification(
+      input,
+      'Photo analysis is temporarily unavailable. Try again or use the manual guidance.',
+    );
   }
 }
 
@@ -84,19 +184,30 @@ export function validateClassification(value: unknown): ClassificationResult {
     candidate.confidence < 0 ||
     candidate.confidence > 1 ||
     typeof candidate.localeRuleVersion !== 'string' ||
-    !(candidate.explanation === null || typeof candidate.explanation === 'string')
+    !(candidate.explanation === null || typeof candidate.explanation === 'string') ||
+    typeof candidate.taskPrompt !== 'string' ||
+    typeof candidate.promptSimilarity !== 'number' ||
+    candidate.promptSimilarity < 0 ||
+    candidate.promptSimilarity > 1 ||
+    typeof candidate.taskSatisfied !== 'boolean' ||
+    !(
+      candidate.failureReason === null ||
+      [
+        'liquid_present',
+        'unrelated_item',
+        'recycling_context_missing',
+        'low_confidence',
+        'upload_failure',
+        'ai_failure',
+      ].includes(candidate.failureReason as string)
+    ) ||
+    typeof candidate.matchesTask !== 'boolean' ||
+    typeof candidate.taskConfidence !== 'number' ||
+    candidate.taskConfidence < 0 ||
+    candidate.taskConfidence > 1 ||
+    !(candidate.taskReason === null || typeof candidate.taskReason === 'string')
   ) {
     throw new Error('The model returned an invalid classification.');
-  }
-  if (
-    candidate.matchesTask !== undefined &&
-    (typeof candidate.matchesTask !== 'boolean' ||
-      typeof candidate.taskConfidence !== 'number' ||
-      candidate.taskConfidence < 0 ||
-      candidate.taskConfidence > 1 ||
-      !(candidate.taskReason === null || typeof candidate.taskReason === 'string'))
-  ) {
-    throw new Error('The model returned invalid task validation.');
   }
   return candidate as ClassificationResult;
 }

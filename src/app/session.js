@@ -1,4 +1,5 @@
 import { authService } from '../services/auth-service.js';
+import { gameService } from '../services/game-service.js';
 import { profileService } from '../services/profile-service.js';
 import { toAppError } from './errors.js';
 
@@ -24,6 +25,11 @@ export const session = {
         profile = await profileService.get(current.user.id);
       } catch (error) {
         profileError = toAppError(error, 'Your profile could not be loaded yet.');
+      }
+      try {
+        await gameService.getDailyTask();
+      } catch {
+        // Task assignment is best-effort here; the dashboard retries when it loads.
       }
     }
     state = { ready: true, session: current, profile, profileError };

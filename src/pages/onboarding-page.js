@@ -1,6 +1,8 @@
 import { required } from '../utils/validation.js';
 import { announce, escapeHtml } from '../lib/dom.js';
 import { navigate as defaultNavigate, standaloneShell } from '../features/ecocrew/page-utils.js';
+import { clearPendingInvite, getPendingInviteCode } from './join-crew-page.js';
+import { ecoCrewService } from '../services/ecocrew-service.js';
 
 function initials(value) {
   const words = String(value || '')
@@ -21,12 +23,12 @@ export function renderOnboardingPage({ session, navigate = defaultNavigate } = {
     '<section class="ecocrew-card ecocrew-onboarding-card" aria-labelledby="onboarding-title">' +
       '<div class="ecocrew-onboarding-avatar" data-onboarding-avatar aria-hidden="true">?</div>' +
       '<p class="ecocrew-kicker">MAKE IT YOURS</p>' +
-      '<h2 id="onboarding-title">Choose your crew name</h2>' +
-      '<p class="ecocrew-muted">Your display name is all we need to get you playing. You can personalise more later.</p>' +
+      '<h2 id="onboarding-title">What should we call you?</h2>' +
+      '<p class="ecocrew-muted">This is the name your crew will see. You can personalise more later.</p>' +
       '<form class="ecocrew-onboarding-form" data-profile-form novalidate>' +
       '<label for="display-name">Display name<input id="display-name" name="displayName" type="text" maxlength="40" autocomplete="name" placeholder="e.g. Maya" required></label>' +
       '<p class="ecocrew-form-error" data-form-error role="alert" hidden></p>' +
-      '<button class="btn ecocrew-btn-primary" type="submit">Continue to EcoCrew</button>' +
+      '<button class="btn ecocrew-btn-primary" type="submit">Continue to today’s action</button>' +
       '</form></section>',
     'Choose the display name your crew will see. EcoCrew creates an initials avatar automatically so you can start immediately.',
   );
@@ -57,6 +59,20 @@ export function renderOnboardingPage({ session, navigate = defaultNavigate } = {
     error.hidden = true;
     try {
       await session.saveProfile({ displayName });
+      const inviteCode = getPendingInviteCode();
+      if (inviteCode) {
+        try {
+          await ecoCrewService.joinCrew(inviteCode);
+          clearPendingInvite();
+        } catch (joinError) {
+          error.textContent =
+            joinError.message ||
+            'Your profile is ready, but we could not join the invited crew yet.';
+          error.hidden = false;
+          submitButton.disabled = false;
+          return;
+        }
+      }
       announce('Profile saved.', 'success');
       navigate('/dashboard');
     } catch (exception) {

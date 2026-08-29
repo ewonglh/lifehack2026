@@ -24,14 +24,84 @@ export const demoTask = {
   taskId: 'recycle-plastic-bottle',
   taskDay: 'demo-day',
   timezone: 'Asia/Singapore',
-  prompt: 'Recycle a plastic drink bottle',
-  targetObject: 'bottle',
+  locale: 'en-SG',
+  localeRuleVersion: 'sg-demo-v1',
+  title: 'Clean Bottle Check',
+  instruction:
+    'Empty a single-use plastic bottle, recycle it, and take a photo to confirm the action.',
+  prompt:
+    'The image shows a single use plastic bottle without any liquid inside held up to a recycling bin.',
+  targetObject: 'single-use plastic bottle',
   targetMaterial: 'plastic',
   targetAction: 'recycle',
   validationMetadata: { aliases: ['PET bottle', 'water bottle'] },
 };
 
-export const demoScan = {
+export const demoScans = {
+  empty_bottle: {
+    itemName: 'Empty plastic drink bottle',
+    material: 'PET plastic',
+    recommendedBin: 'recycle',
+    preparationTip: 'Empty the bottle before recycling.',
+    confidence: 0.96,
+    localeRuleVersion: 'sg-demo-v1',
+    explanation: 'The bottle, preparation state, and recycling bin match today’s mission.',
+    taskPrompt:
+      'The image shows a single use plastic bottle without any liquid inside held up to a recycling bin.',
+    promptSimilarity: 0.96,
+    taskSatisfied: true,
+    failureReason: null,
+    matchesTask: true,
+    taskConfidence: 0.96,
+    taskReason: 'The empty bottle is held toward the recycling bin.',
+  },
+  liquid_bottle: {
+    itemName: 'Plastic drink bottle with liquid',
+    material: 'PET plastic',
+    recommendedBin: 'recycle',
+    preparationTip: 'Empty the bottle before recycling.',
+    confidence: 0.96,
+    localeRuleVersion: 'sg-demo-v1',
+    explanation: 'The bottle matches the mission, but visible liquid is still inside.',
+    taskPrompt:
+      'The image shows a single use plastic bottle without any liquid inside held up to a recycling bin.',
+    promptSimilarity: 0.96,
+    taskSatisfied: false,
+    failureReason: 'liquid_present',
+    matchesTask: false,
+    taskConfidence: 0.96,
+    taskReason: 'Empty the bottle first.',
+  },
+  unrelated_item: {
+    itemName: 'Unrelated household item',
+    material: 'Unknown',
+    recommendedBin: 'landfill',
+    preparationTip: null,
+    confidence: 0.94,
+    localeRuleVersion: 'sg-demo-v1',
+    explanation:
+      'The image does not show the single-use plastic bottle required by today’s mission.',
+    taskPrompt:
+      'The image shows a single use plastic bottle without any liquid inside held up to a recycling bin.',
+    promptSimilarity: 0.96,
+    taskSatisfied: false,
+    failureReason: 'unrelated_item',
+    matchesTask: false,
+    taskConfidence: 0.94,
+    taskReason: 'That item does not match today’s mission.',
+  },
+};
+
+export const demoScan = demoScans.empty_bottle;
+
+export const demoFixtures = [
+  { id: 'liquid_bottle', label: 'Bottle with water', icon: '💧' },
+  { id: 'empty_bottle', label: 'Empty bottle', icon: '♻️' },
+  { id: 'unrelated_item', label: 'Unrelated item', icon: '👟' },
+];
+
+/* Kept as the canonical successful fixture for older pages. */
+export const successfulDemoScan = {
   itemName: 'Plastic drink bottle',
   material: 'PET plastic',
   recommendedBin: 'recycle',
@@ -39,6 +109,11 @@ export const demoScan = {
   confidence: 0.86,
   localeRuleVersion: 'sg-demo-v1',
   explanation: 'The bottle shape and label match a PET beverage bottle.',
+  taskPrompt:
+    'The image shows a single use plastic bottle without any liquid inside held up to a recycling bin.',
+  promptSimilarity: 0.96,
+  taskSatisfied: true,
+  failureReason: null,
   matchesTask: true,
   taskConfidence: 0.95,
   taskReason: 'The demo image matches the assigned bottle task.',
@@ -69,7 +144,7 @@ export const activity = [
   {
     id: 'demo-activity-maya',
     actor: 'Maya',
-    action: 'sorted a glass pasta jar correctly',
+    action: 'completed a glass jar action',
     time: '18 min ago',
     reactions: 4,
     emoji: '✨',
@@ -123,7 +198,7 @@ export const cosmetics = [
     kind: 'frame',
     icon: '🍄',
     unlocked: false,
-    progress: '2 more correct sorts',
+    progress: '2 more completed actions',
   },
 ];
 

@@ -2,17 +2,19 @@
 
 EcoCrew is a mobile-first social recycling game. Players post a photo of a household item, choose the bin they think is correct, receive AI-assisted disposal guidance, and contribute points to a private crew, weekly mission, and shared streak.
 
-The current repository contains a working frontend demo with deterministic mock analysis and browser persistence. Supabase authentication, database persistence, Storage, and the production VLM adapter remain integration work.
+The repository contains the mobile MVP with a real Supabase-backed account, profile, crew, daily task, submission, scoring, progress, rewards, and measurement flow. Mock mode remains available for local development and deterministic demo fixtures; it is not the production data source.
 
 ## Current demo features
 
 - Responsive dashboard with daily post allowance, points, crew streak, mission progress, and cosmetic unlock progress.
 - Post flow with camera/file upload, image preview, four disposal choices, simulated analysis, and a result breakdown.
-- Register and login screens with browser validation and mock session state.
+- Email/password registration and login with Supabase sessions, display-name onboarding, and invite-link crew joining.
 - Editable profile with name, handle, age, About Myself text, lifetime points, cosmetics, and a list of completed posts.
 - Crew hub with Join and Create flows. The controls disappear after membership is saved, and a crew owner can delete their crew after confirmation.
 - Crew mission, activity feed, reactions, weekly league points that reset every Monday at midnight SGT, and cosmetic collection.
-- Crew invite dropdown for X, Instagram, Telegram, and WhatsApp. Instagram copies the invite link for pasting; the other choices open their web share flow.
+- Crew invite dropdown with native mobile sharing, clipboard fallback, and X, Instagram, Telegram, and WhatsApp links.
+- Three deterministic Clean Bottle Check demo samples for liquid-present, empty, and unrelated-item outcomes.
+- Metadata-only baseline/follow-up measurement view labelled as demonstration data.
 - An Info control in the top-right corner of every page explains that screen’s purpose.
 - Keyboard-friendly controls, labelled bin choices, responsive layouts, and reduced-motion support.
 
@@ -77,7 +79,7 @@ npm.cmd run db:reset:remote
 
 This permanently deletes data in the linked remote database before replaying the local migrations and seed. Use it only for a disposable development or staging project, and verify the linked project before confirming the CLI prompt.
 
-To connect a Supabase project, copy `.env.example` to `.env.local` and add only browser-safe project values:
+To connect a Supabase project, copy `.env.example` to `.env.local`, set `VITE_USE_MOCK_DATA=false`, and add only browser-safe project values:
 
 ```shell
 VITE_SUPABASE_URL=https://your-project.supabase.co
@@ -94,37 +96,41 @@ VITE_SUPABASE_ANON_KEY=
 
 The mock flag is honored only by Vite development builds. On the sign-in page, choose **Reset local demo data** to clear the dummy user, profile, and friends.
 
-Add `http://localhost:3000/?auth_callback=1#/auth/callback` and the equivalent deployed URL to Supabase Auth’s allowed redirect URLs before testing Google OAuth or magic links. Never add a Supabase service-role key or an OpenAI key to a `VITE_` variable. The current frontend expects a `profiles` table; the friend service remains mock-backed until the backend friendship contract is merged.
+Add `http://localhost:3000/?auth_callback=1#/auth/callback` and the equivalent deployed URL to Supabase Auth’s allowed redirect URLs. For a judge-friendly hackathon flow, disable email confirmation/autoconfirm new accounts in the Supabase Auth settings. Never add a Supabase service-role key or an OpenRouter key to a `VITE_` variable.
+
+The Edge Functions require the Supabase service-role secret supplied by the hosted runtime. Set `OPENROUTER_API_KEY` only as an Edge Function secret when real analysis is desired; optionally set `OPENROUTER_MODEL` to select the vision model (default: `minimax/minimax-m3:free`). Otherwise set `MOCK_VLM=true` for the deterministic three-outcome demo. If live analysis is not configured or temporarily unavailable, the API returns an honest `ai_failure`/manual-retry result. Set `ALLOWED_ORIGIN` to the deployed site origin when the site is hosted.
 
 ## Routes
 | Hash route | Screen |
 |---|---|
-| `#/` | Redirects to sign in |
+| `#/` | Habit landing page; authenticated users go to Home |
 | `#/register` | Create-account demo |
+| `#/join/ECO123` | Seeded demo-crew invite flow |
 | `#/login` | Login demo |
-| `#/dashboard` | Daily progress and primary Create Post action |
-| `#/sort` | Create Post photo and bin-selection flow; the path is retained temporarily for compatibility |
-| `#/result` | Classification guidance, points, crew progress, and unlock result |
+| `#/dashboard` | Today’s bottle action, personal progress, and crew progress |
+| `#/sort` | Today’s action photo flow; the path is retained temporarily for compatibility |
+| `#/result` | Preparation guidance, self-reported check-in, points, crew progress, and reward |
 | `#/crew` | Crew membership, mission, feed, reactions, and invitations |
 | `#/league` | Weekly cohort leaderboard and cosmetics |
 | `#/profile` | Editable profile and My Posts history |
+| `#/measurement` | Seeded baseline/follow-up behaviour measurement |
 
 Unknown routes display an in-app not-found state.
 
 ## Demo data and persistence
 
-The frontend currently uses `src/features/ecocrew/scan-service.js` as a mock adapter. It stores demo data under the `localStorage` key `ecocrew-demo-state`, including:
+When mock mode is enabled, `src/features/ecocrew/scan-service.js` stores demo data under the `localStorage` key `ecocrew-demo-state`, including:
 
-- daily post count and daily points;
+- daily action count and daily points;
 - lifetime profile points, which do not reset;
 - weekly league points and the active Singapore week key;
-- mission progress and the latest result;
+- mission progress, pending check-in, and the latest result;
 - profile edits;
 - profile post summaries;
 - crew membership and invite code;
 - activity reactions.
 
-Login/register actions set `ecocrew-demo-signed-in` in `sessionStorage`. This is demonstration state only: there is currently no route guard, password storage, or real authentication.
+Login/register actions set `ecocrew-demo-signed-in` in `sessionStorage`. In Supabase mode, authentication, crew membership, points, task completion, and progress are server-backed. Task photos are sent to the Edge Function as ephemeral multipart data and are not stored.
 
 To reset the demo and make Join/Create visible again, run this in the browser console and refresh:
 
@@ -133,7 +139,7 @@ localStorage.removeItem('ecocrew-demo-state');
 sessionStorage.removeItem('ecocrew-demo-signed-in');
 ```
 
-Do not treat browser-calculated points, membership, or profile data as trusted production state. Supabase and trusted server functions will become canonical during integration.
+Do not treat browser-calculated points, membership, or profile data as trusted production state. Supabase RPCs and trusted Edge Functions are canonical.
 
 ## Project layout
 
@@ -147,22 +153,22 @@ src/
 supabase/
   functions/               Edge Function and shared analysis scaffolding
   migrations/              Canonical database changes when added by the backend owner
-public/assets/              Static images and icons
+  public/assets/              Static images and icons
 tests/                      Unit, integration, and browser tests when added
 ```
 
-The application uses hash routes, so static hosts do not need server-side SPA rewrite rules. The root route `#/` redirects to `#/auth`; authenticated users then continue to onboarding or the dashboard. Core frontend routes are `#/auth`, `#/auth/callback`, `#/onboarding`, `#/dashboard`, `#/friends`, `#/profile`, and `#/settings`.
+The application uses hash routes, so static hosts do not need server-side SPA rewrite rules. The root route `#/` renders the habit landing page for anonymous users; authenticated users continue to onboarding or the dashboard. Core frontend routes are `#/`, `#/auth`, `#/auth/callback`, `#/onboarding`, `#/dashboard`, `#/sort`, `#/result`, `#/friends`, `#/profile`, and `#/settings`.
 
 Bootstrap JavaScript plugins should be imported only by the component that uses them; do not add jQuery or a global Bootstrap bundle.
-The user-facing term is **Post**. Some internal names such as `submit-page`, `scan-service`, `scan_event`, and the `#/sort` route remain because a post is backed by a recycling scan attempt. Rename those only as a coordinated contract migration.
+The user-facing term is **Today’s action**. Internal names such as `submit-page`, `scan-service`, `scan_event`, and the `#/sort` route remain temporarily for compatibility. The photo validates preparation and recycling context; the user’s check-in records the action honestly.
 
 ## Validate changes
 
 ```powershell
-npm.cmd test
+npm.cmd run build
 ```
 
-This runs Stylelint and creates a production Vite build. Other commands are:
+The production Vite build is the deployment handoff check. Other commands are:
 
 | Command | Purpose |
 |---|---|
@@ -177,7 +183,7 @@ This runs Stylelint and creates a production Vite build. Other commands are:
 - VLM credentials must stay in a Supabase Edge Function; never expose them in client JavaScript or `VITE_*` variables.
 - Item photos remain private by default. A profile post currently exposes only a disposal summary, not the image.
 - The backend owns canonical points, daily limits, membership, streaks, missions, and unlocks.
-- Keep mock responses aligned with [CONTRACTS.md](./CONTRACTS.md) while real services are developed.
+- Keep mock responses aligned with the Supabase result contract in [CONTRACTS.md](./CONTRACTS.md).
 - See [DEVPLAN.md](./DEVPLAN.md) for product priorities, ownership, milestones, and remaining work.
 
 ## Team ownership

@@ -21,6 +21,7 @@ import {
   queueDemoLeague,
   addReaction,
   submitDemoTask,
+  confirmDemoAction,
   updateDemoProfile,
   getDemoState,
 } from '../features/ecocrew/scan-service.js';
@@ -53,9 +54,31 @@ function normalizeClassification(value = {}) {
     confidence: Number(value.confidence ?? 0),
     localeRuleVersion: value.localeRuleVersion ?? value.locale_rule_version ?? 'sg-demo-v1',
     explanation: value.explanation ?? value.reason ?? null,
-    matchesTask: value.matchesTask,
-    taskConfidence: value.taskConfidence,
+    taskPrompt: value.taskPrompt ?? value.task_prompt ?? '',
+    promptSimilarity:
+      value.promptSimilarity === undefined && value.prompt_similarity === undefined
+        ? 0
+        : Number(value.promptSimilarity ?? value.prompt_similarity),
+    taskSatisfied: Boolean(
+      value.taskSatisfied ?? value.task_satisfied ?? value.matchesTask ?? false,
+    ),
+    failureReason:
+      (value.failureReason ?? value.failure_reason ?? null) === 'wrong_bin'
+        ? 'recycling_context_missing'
+        : (value.failureReason ?? value.failure_reason ?? null),
+    matchesTask: Boolean(value.matchesTask ?? false),
+    taskConfidence: Number(value.taskConfidence ?? 0),
     taskReason: value.taskReason ?? null,
+  };
+}
+
+function normalizeBehaviorCheckIn(value = {}) {
+  value = value || {};
+  return {
+    action: value.action ?? 'recycle_bottle',
+    status: value.status ?? value.behavior_status ?? 'not_started',
+    selfReported: Boolean(value.selfReported ?? value.self_reported ?? false),
+    confirmedAt: value.confirmedAt ?? value.confirmed_at ?? null,
   };
 }
 
@@ -66,11 +89,10 @@ function normalizeSubmission(value = {}) {
     value.points && typeof value.points === 'object'
       ? Number(value.points.total ?? 0)
       : Number(value.points ?? awarded.reduce((sum, item) => sum + Number(item.points || 0), 0));
-  const isCorrect =
-    value.post?.isCorrect ??
-    (value.userSelectedBin
-      ? value.userSelectedBin === classification.recommendedBin && value.validated === true
-      : value.validated === true);
+  const behaviorCheckIn = normalizeBehaviorCheckIn(value.behaviorCheckIn ?? value);
+  const isCorrect = value.post?.isCorrect ?? value.validated === true;
+  const failureReason =
+    value.failureReason ?? value.failure_reason ?? classification.failureReason ?? null;
   return {
     ...value,
     scanEventId: value.scanEventId ?? value.submissionId ?? value.id,
@@ -82,20 +104,29 @@ function normalizeSubmission(value = {}) {
     preparationTip: classification.preparationTip,
     confidence: classification.confidence,
     reason: classification.explanation,
+    failureReason: failureReason === 'wrong_bin' ? 'recycling_context_missing' : failureReason,
     isCorrect,
-    outcome: value.outcome ?? (value.validated ? 'confirmed' : 'needs_confirmation'),
+    outcome:
+      value.outcome ??
+      (behaviorCheckIn.status === 'pending'
+        ? 'awaiting_check_in'
+        : behaviorCheckIn.status === 'confirmed' || value.validated
+          ? 'completed'
+          : 'failed'),
+    behaviorCheckIn,
     awarded,
     points:
       value.points && typeof value.points === 'object'
         ? value.points
         : {
             total: totalPoints,
-            correctBin: isCorrect ? totalPoints : 0,
+            actionCompletion: isCorrect ? totalPoints : 0,
             preparation: 0,
             dailyBonus: 0,
           },
     crewUpdate: value.crewUpdate,
     post: value.post,
+    task: value.task,
   };
 }
 
@@ -147,8 +178,15 @@ export const ecoCrewService = {
     return normalizeSubmission(result);
   },
 
-  getLastResult() {
-    const result = useMockData ? getLastResult() : gameService.getLastSubmission();
+  async confirmAction(values) {
+    const result = useMockData
+      ? confirmDemoAction(values?.submissionId || 'latest')
+      : await gameService.confirmAction(values);
+    return normalizeSubmission(result);
+  },
+
+  async getLastResult(submissionId = 'latest') {
+    const result = useMockData ? getLastResult() : await gameService.getSubmission(submissionId);
     return result ? normalizeSubmission(result) : null;
   },
 
@@ -163,19 +201,87 @@ export const ecoCrewService = {
         dailyPoints: state.dailyPoints,
         lifetimePoints: state.lifetimePoints,
         weeklyPoints: state.crewMembership ? state.weeklyPoints : null,
+        todayActionStatus: state.pendingSubmissionId
+          ? 'pending'
+          : state.submittedTaskDay === task.taskDay
+            ? 'completed'
+            : 'available',
         todaySubmitted: state.submittedTaskDay === task.taskDay,
         todaySubmissionId:
-          state.submittedTaskDay === task.taskDay
+          state.pendingSubmissionId ||
+          (state.submittedTaskDay === task.taskDay
             ? state.lastResult?.submissionId || state.lastResult?.scanEventId || null
-            : null,
+            : null),
       };
     }
-    const [task, crew, league] = await Promise.all([
+    const [task, crew, league, actor] = await Promise.all([
       gameService.getDailyTask(),
       gameService.getCrewOverview(),
       gameService.getCurrentLeague(),
+      supabase.auth.getUser(),
     ]);
-    return { task, crew, league };
+    const userId = actor.data.user?.id;
+    const [
+      { data: submissionRows, error: submissionError },
+      { data: profileProgress, error: progressError },
+    ] = await Promise.all([
+      supabase
+        .from('submissions')
+        .select(
+          'id, task_day, verification_status, behavior_status, behavior_confirmed_at, points, submitted_at',
+        )
+        .eq('profile_id', userId)
+        .eq('task_day', task.taskDay)
+        .order('submitted_at', { ascending: false }),
+      supabase
+        .from('profile_progress')
+        .select('lifetime_xp')
+        .eq('profile_id', userId)
+        .maybeSingle(),
+    ]);
+    if (submissionError) throw submissionError;
+    if (progressError) throw progressError;
+    const submissions = submissionRows || [];
+    const verified = submissions.find(
+      (submission) => submission.verification_status === 'verified',
+    );
+    const pending = submissions.find((submission) => submission.behavior_status === 'pending');
+    const dailyPoints = submissions
+      .filter((submission) => submission.verification_status === 'verified')
+      .reduce((sum, submission) => sum + Number(submission.points || 0), 0);
+    return {
+      task,
+      crew,
+      league,
+      dailyPoints,
+      lifetimePoints: Number(profileProgress?.lifetime_xp || 0),
+      weeklyPoints: crew.membership ? Number(crew.weeklyPoints || league.league?.score || 0) : null,
+      todaySubmitted: Boolean(verified),
+      todayActionStatus: verified ? 'completed' : pending ? 'pending' : 'available',
+      todaySubmissionId: verified?.id || pending?.id || null,
+    };
+  },
+
+  async getMeasurement() {
+    if (useMockData) {
+      return {
+        baseline: {
+          scenarios: 4,
+          prepared_percent: 50,
+          recycled_percent: 50,
+          behavior_percent: 50,
+        },
+        followUp: {
+          scenarios: 4,
+          prepared_percent: 75,
+          recycled_percent: 75,
+          behavior_percent: 75,
+        },
+        targetPercentagePoints: 20,
+        isDemo: true,
+      };
+    }
+    return gameService.getMeasurement();
   },
 
   async getCrewOverview() {
@@ -186,15 +292,13 @@ export const ecoCrewService = {
   async joinCrew(inviteCode) {
     if (useMockData) return normalizeMembership(joinDemoCrew(inviteCode));
     const response = await gameService.joinSquad(inviteCode);
-    const overview = await gameService.getCrewOverview();
-    return normalizeMembership(overview.membership ?? { squadId: response.squadId });
+    return normalizeMembership({ squadId: response.squadId, role: 'member' });
   },
 
   async createCrew(name) {
     if (useMockData) return normalizeMembership(createDemoCrew(name));
     const response = await gameService.createSquad(name, 'Asia/Singapore');
-    const overview = await gameService.getCrewOverview();
-    return normalizeMembership(overview.membership ?? { squadId: response.squadId, role: 'owner' });
+    return normalizeMembership({ squadId: response.squadId, role: 'owner' });
   },
 
   async leaveCrew(membership) {
@@ -329,20 +433,19 @@ export const ecoCrewService = {
   },
 
   async getProfileData(userId) {
-    const [profile, posts, cosmetics] = await Promise.all([
+    const [profile, posts, cosmetics, stats] = await Promise.all([
       this.getProfile(userId),
       this.getPosts(userId),
       this.getCosmetics(),
+      useMockData ? Promise.resolve(null) : gameService.getProfileStats(),
     ]);
     const state = useMockData ? getDemoState() : null;
     return {
       profile,
       posts,
       cosmetics,
-      lifetimePoints: Number(
-        state?.lifetimePoints ?? posts.reduce((sum, post) => sum + Number(post.points || 0), 0),
-      ),
-      bestStreak: Number(state?.bestStreak ?? 0),
+      lifetimePoints: Number(state?.lifetimePoints ?? stats?.lifetimePoints ?? 0),
+      bestStreak: Number(state?.bestStreak ?? stats?.bestStreak ?? 0),
     };
   },
 

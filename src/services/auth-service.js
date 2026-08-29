@@ -39,10 +39,14 @@ export const authService = {
     updateMockState((state) => ({ ...state, user }));
     return { user, mock: true };
   },
-  async signUp({ email, password }) {
+  async signUp({ email, password, displayName }) {
     ensureBackend();
     if (supabase) {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { display_name: displayName?.trim() || undefined } },
+      });
       if (error) throw error;
       return data;
     }
@@ -67,7 +71,7 @@ export const authService = {
         options: { redirectTo: callbackUrl() },
       });
       if (error) throw error;
-      return;
+      return { mock: false };
     }
     return this.signIn({ email: `${provider}.demo@ecocrew.local`, password: 'mock' });
   },

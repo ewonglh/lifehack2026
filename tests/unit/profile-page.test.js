@@ -54,6 +54,11 @@ describe('profile cosmetics and post history', () => {
     expect(content.innerHTML).toContain('&lt;Ari&gt;');
     expect(content.innerHTML).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(content.innerHTML).toContain('&lt;Bottle&gt;');
+    expect(rendered.element.textContent).toContain('Task history');
+    expect(rendered.element.textContent).toContain('tasks completed');
+    expect(rendered.element.textContent).toContain('Daily task completed');
+    expect(rendered.element.textContent).not.toMatch(/posts?/i);
+    expect(rendered.element.textContent).not.toContain('action');
 
     const equipButton = content.querySelector('[data-equip-cosmetic="moss"]');
     expect(equipButton).not.toBeNull();

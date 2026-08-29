@@ -84,6 +84,40 @@ describe('crew page membership actions', () => {
     await vi.waitFor(() => expect(joinCrew).toHaveBeenCalledWith('ABC123'));
   });
 
+  it('does not render mission errors for a user without a crew', async () => {
+    getCrewOverview.mockResolvedValue({ membership: null });
+    const rendered = renderFriendsPage();
+
+    await rendered.afterRender();
+
+    expect(rendered.element.querySelector('[data-crew-content]').textContent).not.toContain(
+      'The crew mission is unavailable',
+    );
+    expect(rendered.element.querySelector('.ecocrew-mission-card')).toBeNull();
+  });
+
+  it('keeps membership controls visible when the mission is temporarily unavailable', async () => {
+    getCrewOverview.mockResolvedValue({
+      ...crewOverview(),
+      missionUnavailable: true,
+      mission: {
+        title: 'Weekly mission unavailable',
+        progress: 0,
+        target: 1,
+        endsLabel: 'Needs setup',
+        unavailable: true,
+      },
+    });
+    const rendered = renderFriendsPage();
+
+    await rendered.afterRender();
+
+    const content = rendered.element.querySelector('[data-crew-content]').textContent;
+    expect(rendered.element.querySelector('[data-leave-crew]')).not.toBeNull();
+    expect(content).toContain('Weekly mission unavailable');
+    expect(content).toContain('membership and leave controls are still available');
+  });
+
   it('shows leave only to members and delegates the existing leave action', async () => {
     getCrewOverview.mockResolvedValue(crewOverview());
     const rendered = renderFriendsPage();
@@ -122,6 +156,6 @@ describe('crew page membership actions', () => {
     await vi.waitFor(() => expect(window.open).toHaveBeenCalled());
     const sharedUrl = window.open.mock.calls[0][0];
     expect(sharedUrl).toContain('ABC123');
-    expect(sharedUrl).toContain('%23%2Fcrew');
+    expect(sharedUrl).toContain('%23%2Fjoin%2FABC123');
   });
 });

@@ -4,7 +4,7 @@
 
 EcoCrew is a mobile-first social recycling game. Its MVP is one polished daily ritual:
 
-> **See today’s item → photograph it → choose a disposal bin → get clear AI-assisted feedback → help the crew → earn a visible reward.**
+> **See today’s item → prepare it correctly → photograph the action → get clear AI-assisted feedback → help the crew → earn a visible reward.**
 
 This document is the scope boundary for implementation agents. Optimize for a reliable, delightful vertical slice that can be demonstrated in about three minutes. Do not add adjacent features unless they directly improve this loop or a task explicitly asks for them.
 
@@ -18,12 +18,12 @@ The primary audience is a small group of friends or family members. The MVP shou
 
 ## P0 behaviour-change target
 
-The single P0 behaviour is **correctly recycling a single-use plastic bottle after emptying it**. The other bin categories remain clearly labeled answer choices, but they are not separate behaviour-change goals for the MVP.
+The single P0 behaviour is **correctly preparing and recycling a single-use plastic bottle after emptying it**. The app may collect a disposal category as supporting validation, but identifying the category is not the behaviour-change goal for the MVP.
 
 ### User-facing daily mission
 
 - Mission title: **Clean Bottle Check**.
-- Show this instruction on both Home and Scan before image capture: **“Empty a single-use plastic bottle, hold it up to the recycling bin, and take a photo.”**
+- Show this instruction on both Home and Scan before image capture: **“Empty a single-use plastic bottle, recycle it, and take a photo to confirm the action.”**
 - Make clear that the bottle must contain no liquid.
 - Keep the friendly mission instruction separate from the internal VLM prompt.
 
@@ -40,7 +40,7 @@ The single P0 behaviour is **correctly recycling a single-use plastic bottle aft
    - A non-crew user can continue and earn individual progress.
 
 3. **Open the daily task.**
-   - Home has one dominant CTA: **Sort today’s item**.
+   - Home has one dominant CTA: Complete today's task.
    - Assign one deterministic task per user and local calendar day.
    - Keep the demo to one locale/ruleset and four bins: recycle, compost, return/reuse, and landfill.
    - Use **Clean Bottle Check** as the P0 hero mission and show its instruction on Home and Scan before capture.
@@ -50,9 +50,9 @@ The single P0 behaviour is **correctly recycling a single-use plastic bottle aft
    - Submit the image as multipart data to a secure backend function.
    - Keep the image in memory for the request only; never persist image binaries or image paths.
 
-5. **Make a sorting decision.**
-   - Let the player choose a bin before seeing the answer.
-   - Use large, labeled controls; never communicate bin meaning by color alone.
+5. **Confirm the sustainable action.**
+   - After the photo validation result, let the player record what they did before scoring and progress are revealed.
+   - Keep the check-in action large and clearly labeled; it is the behaviour-change objective, while photo validation supplies preparation feedback.
 
 6. **Reveal the result.**
    - The backend evaluates the assigned task and the complete image prompt, not only the bin or object identity.
@@ -105,7 +105,7 @@ For the P0 **Clean Bottle Check** demo, distinguish these intentional validation
 
 - Show a human-readable error.
 - Preserve the user’s ability to retry or return home.
-- Use the deterministic mock response for the demo when the external model is unavailable.
+- Use deterministic fixtures only when explicit demo mode (`MOCK_VLM=true`) is enabled; otherwise report `ai_failure` with manual retry guidance when the external model is unavailable.
 
 ### Deterministic demo fixtures
 
@@ -136,10 +136,10 @@ Keep scoring understandable and resistant to scan-volume farming:
 
 Define and demonstrate a lightweight baseline-plus-follow-up measurement approach for the P0 behaviour:
 
-- Baseline: a short, unaided bottle-sorting and preparation check before educational feedback.
+- Baseline: a short, unaided bottle-preparation and recycling check before educational feedback.
 - Follow-up: an equivalent check after seven days, supported by seeded data for the hackathon demo.
-- Primary metric: the percentage of bottle scenarios correctly prepared and sorted.
-- Secondary proxy: optional self-reported completion of the real-world bottle-recycling action.
+- Primary metric: the percentage of bottle scenarios correctly prepared and reported as recycled.
+- Secondary proxy: optional self-reported completion of the real-world bottle-recycling action after the task.
 - Provisional target: at least a 20-percentage-point improvement after seven days.
 - Points, scan volume, streaks, and VLM similarity are engagement or validation signals, not proof of real-world behaviour change.
 - Store only task choices, validation outcomes, prompt-similarity metadata, measurement phase, and timestamps; never store image binaries or image paths.
@@ -239,7 +239,7 @@ The server-side P0 task prompt is:
 - The VLM scores similarity against the complete prompt and must consider the bottle, absence of liquid, and recycling-bin context.
 - An object-only match is insufficient: a bottle with liquid and an unrelated item must fail.
 - Use the raw similarity score for server-side validation and confidence handling; present a plain-language result in the UI rather than relying on a numeric score alone.
-- `failure_reason` must use the structured values `liquid_present`, `unrelated_item`, `wrong_bin`, `low_confidence`, `upload_failure`, or `ai_failure`.
+- `failure_reason` must use the structured values `liquid_present`, `unrelated_item`, `recycling_context_missing`, `low_confidence`, `upload_failure`, or `ai_failure`.
 
 Example normalized AI response:
 
@@ -263,7 +263,7 @@ Example normalized AI response:
 Keep the visible product small:
 
 1. **Home** — Clean Bottle Check instruction, today’s task, crew streak, mission progress, and primary CTA.
-2. **Scan** — visible mission instruction, camera/upload, image preview, and bin selection.
+2. **Scan** — visible mission instruction, camera/upload, image preview, and action confirmation.
 3. **Result** — reveal, guidance, points, and progress changes.
 4. **Crew** — teammate milestone, reaction, mission, and standings card.
 5. **Rewards** — unlocked item and next unlock.
@@ -277,7 +277,7 @@ The MVP is ready when:
 - A new user can authenticate, set a display name, join the demo crew, receive today’s task, and submit an image in one session.
 - The typical happy path takes less than 30 seconds from the home CTA to the result.
 - The Clean Bottle Check mission is visible and understandable on Home and Scan before the user takes a photo.
-- The player makes a visible bin choice before seeing the answer.
+- The player sees the preparation requirement, receives the photo validation result, and records their action before scoring/progress are revealed.
 - The result explains the correct action and includes one actionable preparation tip.
 - Success, wrong-bin, low-confidence, invalid-upload, and AI-failure states do not dead-end.
 - A bottle with water fails specifically because liquid is present, with a retry path and zero scoring points.
@@ -288,14 +288,14 @@ The MVP is ready when:
 - The weekly standings card is understandable without explaining league internals.
 - The demo works with seeded/mock AI responses when the external model is unavailable.
 - The canonical VLM prompt includes the bottle, absence of liquid, and recycling-bin context, and the three deterministic fixtures can be demonstrated.
-- A seeded baseline/follow-up measurement view can be demonstrated without claiming observed impact.
+- A seeded baseline/follow-up measurement view can be demonstrated without claiming observed impact or treating a bin answer as proof of behaviour change.
 - The user can see a clear reason to return and invite friends.
 - No secret VLM key or task image data is exposed or persisted.
 - The experience is usable on a phone-sized viewport, by keyboard, and with reduced motion enabled.
 
 ## Demo script
 
-1. Open **Clean Bottle Check** and read the mission instruction: “Empty a single-use plastic bottle, hold it up to the recycling bin, and take a photo.”
+1. Open **Clean Bottle Check** and read the mission instruction: “Empty a single-use plastic bottle, recycle it, and take a photo to confirm the action.”
 2. Upload or photograph a bottle containing water; show the failure and **“Empty the bottle first.”** guidance.
 3. Retry with an empty bottle; show successful validation, recycle guidance, point breakdown, crew progress, and reward.
 4. Retry with an unrelated item; show the mission-mismatch failure and retry path.

@@ -1,5 +1,6 @@
 import { escapeHtml } from '../lib/dom.js';
 import { navigate as defaultNavigate, standaloneShell } from '../features/ecocrew/page-utils.js';
+import { getPendingInviteCode } from './join-crew-page.js';
 
 export function renderAuthCallbackPage({ session, navigate = defaultNavigate } = {}) {
   const page = standaloneShell(
@@ -14,8 +15,16 @@ export function renderAuthCallbackPage({ session, navigate = defaultNavigate } =
     title: 'Completing sign in',
     afterRender: async () => {
       try {
-        await session.refresh();
-        navigate('/signed-in', true);
+        const restored = await session.refresh();
+        const current = restored || session.get?.();
+        const invite = getPendingInviteCode();
+        const nextPath =
+          invite && current?.profile
+            ? '/join/' + encodeURIComponent(invite)
+            : current?.profile
+              ? '/dashboard'
+              : '/onboarding';
+        navigate(nextPath, true);
       } catch (error) {
         const content = page.querySelector('[data-callback-content]');
         if (!content) throw error;

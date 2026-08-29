@@ -39,7 +39,6 @@ export function guardPath(path, access, current) {
     return '/auth';
   if (access === 'private' && !current.profile) return '/onboarding';
   if (access === 'onboarding' && current.profile) return '/dashboard';
-  if (access === 'public' && path === '/' && !current.session?.user) return '/auth';
   if (
     access === 'public' &&
     current.session?.user &&
@@ -93,6 +92,7 @@ export function createRouter({ root, session }) {
     if (route.redirectTo) return navigate(route.redirectTo, true);
 
     try {
+      document.body.dataset.ecocrewDisplayName = current.profile?.displayName || 'I';
       await renderModernRoute({ root, route, path, current, navigate, session, params });
     } catch (exception) {
       const error = toAppError(exception);

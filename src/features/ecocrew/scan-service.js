@@ -1,4 +1,4 @@
-import { activity, cosmetics, crew, demoScan, demoTask, profile } from './mock-data.js';
+import { activity, cosmetics, crew, demoScans, demoScan, demoTask, profile } from './mock-data.js';
 
 const storageKey = 'ecocrew-demo-state';
 const dailyPointsCap = 75;
@@ -32,6 +32,7 @@ function initialState() {
     weeklyPoints: crew.weeklyPoints,
     dailyTaskDay: singaporeDateKey(),
     submittedTaskDay: null,
+    pendingSubmissionId: null,
     weekKey: singaporeWeekKey(),
     missionProgress: crew.mission.progress,
     lastResult: null,
@@ -68,6 +69,7 @@ export function getDemoState() {
         lastResult: legacySubmittedToday ? state.lastResult : null,
         dailyPoints: legacySubmittedToday ? state.dailyPoints : 0,
         dailyScans: legacySubmittedToday ? state.dailyScans : 0,
+        pendingSubmissionId: null,
       };
       changed = true;
     } else if (state.dailyTaskDay !== today) {
@@ -77,6 +79,7 @@ export function getDemoState() {
         dailyPoints: 0,
         dailyScans: 0,
         submittedTaskDay: null,
+        pendingSubmissionId: null,
         lastResult: null,
       };
       changed = true;
@@ -93,10 +96,6 @@ export function getDemoState() {
   }
 }
 
-function normalizeBin(value) {
-  return value === 'reuse' ? 'reuse_return' : value;
-}
-
 function currentProfile() {
   return { ...profile, ...getDemoState().profile };
 }
@@ -110,120 +109,159 @@ export async function analyseDemoPhoto() {
   return demoScan;
 }
 
-function buildDemoResult(state, userBin, analysis, idempotencyKey, task = getDailyTask()) {
-  const selectedBin = normalizeBin(userBin);
+function duplicateSubmissionError(state) {
+  return {
+    code: 'DAILY_TASK_ALREADY_SUBMITTED',
+    message: 'You have already completed today’s action.',
+    submissionId: state.lastResult?.submissionId || state.lastResult?.scanEventId,
+  };
+}
+
+function pendingSubmissionError(state) {
+  return {
+    code: 'ACTION_CHECK_IN_PENDING',
+    message: 'Your bottle is ready. Finish today’s check-in first.',
+    submissionId: state.pendingSubmissionId,
+  };
+}
+
+function buildDemoResult(state, analysis, idempotencyKey, task = getDailyTask()) {
   const confident = analysis.confidence >= 0.7 && analysis.recommendedBin !== 'unknown';
-  const taskSatisfied = analysis.matchesTask !== false;
-  const isCorrect = confident && taskSatisfied && selectedBin === analysis.recommendedBin;
-  const awarded = [];
-  let dailyPoints = state.dailyPoints;
-  let totalPoints = 0;
-
-  if (isCorrect && dailyPoints < dailyPointsCap) {
-    const correctSort = Math.min(10, dailyPointsCap - dailyPoints);
-    awarded.push({ actionType: 'correct_sort', points: correctSort });
-    totalPoints += correctSort;
-    dailyPoints += correctSort;
-    if (analysis.preparationTip) {
-      const preparation = Math.min(5, dailyPointsCap - dailyPoints);
-      awarded.push({ actionType: 'prep_step', points: preparation });
-      totalPoints += preparation;
-      dailyPoints += preparation;
-    }
-    if (state.dailyScans === 0) {
-      const dailyFirst = Math.min(10, dailyPointsCap - dailyPoints);
-      awarded.push({ actionType: 'daily_first', points: dailyFirst });
-      totalPoints += dailyFirst;
-      dailyPoints += dailyFirst;
-    }
-  }
-
-  const outcome = isCorrect
-    ? 'confirmed'
-    : !confident || !taskSatisfied
+  const taskSatisfied = analysis.taskSatisfied ?? analysis.matchesTask !== false;
+  const failureReason =
+    analysis.failureReason ??
+    (!taskSatisfied ? 'recycling_context_missing' : !confident ? 'low_confidence' : null);
+  const photoValidated = confident && taskSatisfied;
+  const outcome = photoValidated
+    ? 'awaiting_check_in'
+    : failureReason === 'low_confidence'
       ? 'unknown'
-      : 'needs_confirmation';
-  const missionProgress = isCorrect
-    ? Math.min(crew.mission.target, state.missionProgress + 10)
-    : state.missionProgress;
-  const membership = state.crewMembership;
-  const crewUpdate = membership
-    ? {
-        weeklyPoints: state.weeklyPoints + totalPoints,
-        missionProgress,
-        streakStatus: isCorrect ? 'advanced' : 'not_qualified',
-      }
-    : undefined;
-  const points = {
-    correctBin: awarded.find((item) => item.actionType === 'correct_sort')?.points || 0,
-    preparation: awarded.find((item) => item.actionType === 'prep_step')?.points || 0,
-    dailyBonus: awarded.find((item) => item.actionType === 'daily_first')?.points || 0,
-    total: totalPoints,
-  };
-  const post = {
-    id: 'demo-post-' + Date.now(),
-    scanEventId: idempotencyKey,
-    itemName: analysis.itemName,
-    finalBin: analysis.recommendedBin,
-    isCorrect: confident && taskSatisfied ? isCorrect : null,
-    points: totalPoints,
-    createdAt: new Date().toISOString(),
-    visibility: 'private',
-    imageVisible: false,
-  };
+      : 'failed';
+  const points = { actionCompletion: 0, preparation: 0, dailyBonus: 0, total: 0 };
 
   return {
     taskId: task.taskId,
     taskDay: task.taskDay,
+    task,
     scanEventId: idempotencyKey,
     submissionId: idempotencyKey,
-    validated: isCorrect,
+    validated: false,
+    photoValidated,
     classification: analysis,
+    failureReason,
     outcome,
-    userSelectedBin: selectedBin,
-    isCorrect,
-    awarded,
+    behaviorCheckIn: photoValidated
+      ? {
+          action: 'recycle_bottle',
+          status: 'pending',
+          selfReported: false,
+          confirmedAt: null,
+        }
+      : null,
+    isCorrect: false,
+    awarded: [],
     points,
-    dailyPointsRemaining: Math.max(0, dailyPointsCap - dailyPoints),
-    streak: {
-      current: isCorrect ? 1 : 0,
-      longest: isCorrect ? 1 : 0,
+    dailyPointsRemaining: Math.max(0, dailyPointsCap - state.dailyPoints),
+    streak: { current: 0, longest: 0 },
+    crewUpdate: undefined,
+    post: null,
+    crew: {
+      ...crew,
+      mission: { ...crew.mission, progress: state.missionProgress },
     },
-    crewUpdate,
+    unlock: null,
+  };
+}
+
+function persistDemoSubmission(state, result, task, idempotencyKey) {
+  return save({
+    ...state,
+    pendingSubmissionId: result.photoValidated ? result.submissionId : state.pendingSubmissionId,
+    lastResult: result,
+    submissionResults: { ...(state.submissionResults || {}), [idempotencyKey]: result },
+  });
+}
+
+function awardDemoResult(state, pending) {
+  const membership = state.crewMembership;
+  const awarded = [];
+  let dailyPoints = state.dailyPoints;
+  const award = (actionType, requested) => {
+    const points = Math.min(requested, Math.max(0, dailyPointsCap - dailyPoints));
+    if (points > 0) {
+      awarded.push({ actionType, points });
+      dailyPoints += points;
+    }
+    return points;
+  };
+  const actionCompletion = award('action_completed', 10);
+  const preparation = pending.classification.preparationTip ? award('prep_step', 5) : 0;
+  const dailyBonus = state.dailyScans === 0 ? award('daily_first', 10) : 0;
+  const total = actionCompletion + preparation + dailyBonus;
+  const missionProgress = membership
+    ? Math.min(crew.mission.target, state.missionProgress + actionCompletion)
+    : state.missionProgress;
+  const confirmedAt = new Date().toISOString();
+  const post = {
+    id: 'demo-post-' + Date.now(),
+    scanEventId: pending.scanEventId,
+    itemName: pending.classification.itemName,
+    finalBin: pending.classification.recommendedBin,
+    isCorrect: true,
+    points: total,
+    createdAt: confirmedAt,
+    visibility: 'private',
+    imageVisible: false,
+  };
+  const result = {
+    ...pending,
+    validated: true,
+    outcome: 'completed',
+    failureReason: null,
+    behaviorCheckIn: {
+      action: 'recycle_bottle',
+      status: 'confirmed',
+      selfReported: true,
+      confirmedAt,
+    },
+    isCorrect: true,
+    awarded,
+    points: { actionCompletion, preparation, dailyBonus, total },
+    dailyPointsRemaining: Math.max(0, dailyPointsCap - dailyPoints),
+    streak: { current: 1, longest: 1 },
+    crewUpdate: membership
+      ? {
+          weeklyPoints: state.weeklyPoints + total,
+          missionProgress,
+          streakStatus: 'advanced',
+        }
+      : undefined,
     post,
     crew: {
       ...crew,
       mission: { ...crew.mission, progress: missionProgress },
     },
-    unlock: isCorrect && state.dailyScans === 0 ? { name: 'Leaf Frame', icon: '🌿' } : null,
+    unlock: state.dailyScans === 0 ? { name: 'Leaf Frame', icon: '🌿' } : null,
   };
-}
-
-function duplicateSubmissionError(state) {
   return {
-    code: 'DAILY_TASK_ALREADY_SUBMITTED',
-    message: 'You have already submitted today’s challenge.',
-    submissionId: state.lastResult?.submissionId || state.lastResult?.scanEventId,
+    state: {
+      ...state,
+      dailyScans: Math.min(state.dailyScans + 1, state.dailyCap),
+      dailyPoints,
+      lifetimePoints: state.lifetimePoints + total,
+      weeklyPoints: membership ? state.weeklyPoints + total : state.weeklyPoints,
+      missionProgress,
+      submittedTaskDay: pending.taskDay,
+      pendingSubmissionId: null,
+      lastResult: result,
+      submissionResults: { ...(state.submissionResults || {}), [pending.submissionId]: result },
+      posts: [post, ...state.posts],
+    },
+    result,
   };
 }
 
-function persistDemoSubmission(state, result, task, idempotencyKey) {
-  const hasCrew = Boolean(state.crewMembership);
-  return save({
-    ...state,
-    dailyScans: Math.min(state.dailyScans + 1, state.dailyCap),
-    dailyPoints: state.dailyPoints + result.points.total,
-    lifetimePoints: state.lifetimePoints + result.points.total,
-    weeklyPoints: hasCrew ? state.weeklyPoints + result.points.total : state.weeklyPoints,
-    missionProgress: hasCrew ? result.crew.mission.progress : state.missionProgress,
-    submittedTaskDay: task.taskDay,
-    lastResult: result,
-    submissionResults: { ...(state.submissionResults || {}), [idempotencyKey]: result },
-    posts: [result.post, ...state.posts],
-  });
-}
-
-export async function submitDemoTask({ file, taskId, userSelectedBin, idempotencyKey }) {
+export async function submitDemoTask({ file, taskId, idempotencyKey, demoFixture }) {
   const FileConstructor = globalThis.File;
   if (!FileConstructor || !(file instanceof FileConstructor) || file.size === 0) {
     throw { code: 'INVALID_IMAGE', message: 'Choose an image before submitting.' };
@@ -242,19 +280,37 @@ export async function submitDemoTask({ file, taskId, userSelectedBin, idempotenc
   const task = getDailyTask();
   if (state.submissionResults?.[idempotencyKey]) return state.submissionResults[idempotencyKey];
   if (state.submittedTaskDay === task.taskDay) throw duplicateSubmissionError(state);
-  const result = buildDemoResult(state, userSelectedBin, demoScan, idempotencyKey, task);
+  if (state.pendingSubmissionId) throw pendingSubmissionError(state);
+  const analysis = demoScans[demoFixture] || demoScan;
+  const result = buildDemoResult(state, analysis, idempotencyKey, task);
   persistDemoSubmission(state, result, task, idempotencyKey);
   return result;
 }
 
-export function completeDemoSort(userBin, analysis = demoScan) {
+export function confirmDemoAction(submissionId = 'latest') {
+  const state = getDemoState();
+  const pendingId = submissionId === 'latest' ? state.pendingSubmissionId : submissionId;
+  const pending = state.submissionResults?.[pendingId] || state.lastResult;
+  if (!pending) throw { code: 'SUBMISSION_NOT_FOUND', message: 'We could not find that action.' };
+  if (pending.behaviorCheckIn?.status === 'confirmed' || pending.outcome === 'completed')
+    return pending;
+  if (!pending.behaviorCheckIn || pending.behaviorCheckIn.status !== 'pending') {
+    throw { code: 'SUBMISSION_NOT_PENDING', message: 'This action is not ready for check-in.' };
+  }
+  const confirmed = awardDemoResult(state, pending);
+  save(confirmed.state);
+  return confirmed.result;
+}
+
+export function completeDemoSort(_userBin, analysis = demoScan) {
   const state = getDemoState();
   const task = getDailyTask();
   if (state.submittedTaskDay === task.taskDay) throw duplicateSubmissionError(state);
+  if (state.pendingSubmissionId) throw pendingSubmissionError(state);
   const idempotencyKey = 'demo-' + Date.now();
-  const result = buildDemoResult(state, userBin, analysis, idempotencyKey, task);
+  const result = buildDemoResult(state, analysis, idempotencyKey, task);
   persistDemoSubmission(state, result, task, idempotencyKey);
-  return result;
+  return confirmDemoAction(idempotencyKey);
 }
 
 export function getLastResult() {
@@ -322,7 +378,11 @@ export function createDemoInvite() {
   const membership = getCrewMembership();
   return {
     inviteCode: membership?.inviteCode || 'ECO123',
-    inviteUrl: window.location.origin + window.location.pathname + '#/crew',
+    inviteUrl:
+      window.location.origin +
+      window.location.pathname +
+      '#/join/' +
+      (membership?.inviteCode || 'ECO123'),
   };
 }
 

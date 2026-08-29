@@ -1,4 +1,5 @@
 import { ecoCrewService } from '../services/ecocrew-service.js';
+import Modal from 'bootstrap/js/dist/modal';
 import {
   appShell,
   escapeHtml,
@@ -66,25 +67,29 @@ export function renderLeaderboardPage({ navigate = defaultNavigate } = {}) {
   const page = appShell(
     'Sprout League',
     'This week',
-    '<section class="ecocrew-league-summary" data-league-summary data-league-state="loading"><span aria-hidden="true">🌱</span><div><strong data-league-rank>Loading standings…</strong><p data-league-position>Every correct post helps your crew move up.</p></div></section>' +
-      '<section class="ecocrew-card ecocrew-league-state" data-league-no-crew hidden><span aria-hidden="true">👥</span><p class="ecocrew-kicker">NOT IN A CREW</p><h2>Join a crew to enter the Sprout League.</h2><p class="ecocrew-muted">Your personal progress is still yours. Join or create a crew when you are ready to compete together.</p><button class="btn ecocrew-btn-primary" type="button" data-action="crew">Find a crew</button></section>' +
+    '<div data-league-content hidden>' +
+      '<section class="ecocrew-league-summary" data-league-summary data-league-state="loading"><span aria-hidden="true">🌱</span><div><strong data-league-rank>Loading standings…</strong><p data-league-position>Every correct post helps your crew move up.</p></div></section>' +
       '<section class="ecocrew-card ecocrew-league-state" data-league-waiting hidden><span aria-hidden="true">🕊</span><p class="ecocrew-kicker">WAITING FOR YOUR LEADER</p><h2>Your crew has not entered a league yet.</h2><p class="ecocrew-muted">Only the crew owner can enter matchmaking. Ask your crew leader to queue the crew when everyone is ready.</p><button class="btn ecocrew-btn-secondary" type="button" data-action="crew">Back to crew</button></section>' +
       '<section class="ecocrew-card ecocrew-league-state" data-league-queued hidden><span aria-hidden="true">⏳</span><p class="ecocrew-kicker">WAITING FOR A MATCH</p><h2>Your crew is queued for the next league.</h2><p class="ecocrew-muted">We will place your crew when the current matchmaking window runs.</p><button class="btn ecocrew-btn-secondary" type="button" data-cancel-queue>Leave queue</button><p class="ecocrew-form-error" data-league-action-error role="alert" hidden></p></section>' +
       '<section class="ecocrew-card ecocrew-league-state" data-league-unranked hidden><span aria-hidden="true">🌱</span><p class="ecocrew-kicker">CREW NOT RANKED YET</p><h2 data-league-unranked-title>Your crew is not ranked yet.</h2><p class="ecocrew-muted" data-league-unranked-copy>Complete league activity with your crew to appear in the weekly standings.</p><button class="btn ecocrew-btn-secondary" type="button" data-action="crew">View crew</button><button class="btn ecocrew-btn-primary" type="button" data-queue-league hidden>Join the weekly league</button><p class="ecocrew-form-error" data-league-action-error role="alert" hidden></p></section>' +
       '<section class="ecocrew-league-points"><div><span data-league-points-label>Weekly league points</span><strong data-league-points>—</strong></div><small data-league-reset>—</small><p>Your lifetime profile points are kept permanently.</p></section>' +
       '<section class="ecocrew-card ecocrew-rankings" data-league-rankings><p class="ecocrew-muted">Loading rankings…</p></section>' +
       '<section class="ecocrew-section-heading"><h2>Your collection</h2><button class="btn btn-link" type="button" data-action="crew">Crew</button></section>' +
-      '<section class="ecocrew-cosmetics" data-cosmetics><p class="ecocrew-muted">Loading cosmetics…</p></section>',
+      '<section class="ecocrew-cosmetics" data-cosmetics><p class="ecocrew-muted">Loading cosmetics…</p></section>' +
+      '</div>' +
+      '<div class="modal fade" id="league-no-crew-modal" data-league-no-crew-modal tabindex="-1" aria-labelledby="league-no-crew-modal-title" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="league-no-crew-modal-title">Join a crew to enter the Sprout League.</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><p class="mb-0">The Sprout League is for crews. Join or create a crew to compete together.</p></div><div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Maybe later</button><button class="btn ecocrew-btn-primary" type="button" data-action="crew" data-bs-dismiss="modal">Find a crew</button></div></div></div></div>',
     'Compare your crew’s points for the current weekly league. League points reset every Monday, while your profile’s lifetime points never reset.',
   );
+  const leagueContent = page.querySelector('[data-league-content]');
   const summary = page.querySelector('[data-league-summary]');
   const rankingsTarget = page.querySelector('[data-league-rankings]');
-  const noCrewState = page.querySelector('[data-league-no-crew]');
   const waitingState = page.querySelector('[data-league-waiting]');
   const queuedState = page.querySelector('[data-league-queued]');
   const unrankedState = page.querySelector('[data-league-unranked]');
   const queueButton = page.querySelector('[data-queue-league]');
   const cancelQueueButton = page.querySelector('[data-cancel-queue]');
+  const noCrewModal = page.querySelector('[data-league-no-crew-modal]');
+  let noCrewModalShown = false;
   let latestOverview = {};
 
   page.querySelectorAll('[data-action="crew"]').forEach((button) => {
@@ -100,7 +105,7 @@ export function renderLeaderboardPage({ navigate = defaultNavigate } = {}) {
 
     page.dataset.leagueState = state;
     summary.dataset.leagueState = state;
-    noCrewState.hidden = state !== 'no_crew';
+    leagueContent.hidden = state === 'no_crew';
     waitingState.hidden = state !== 'waiting';
     queuedState.hidden = state !== 'queued';
     unrankedState.hidden = state !== 'unranked';
@@ -120,6 +125,10 @@ export function renderLeaderboardPage({ navigate = defaultNavigate } = {}) {
         'Join a crew to enter the weekly standings.';
       page.querySelector('[data-league-points-label]').textContent = 'League points';
       page.querySelector('[data-league-points]').textContent = '—';
+      if (!noCrewModalShown && noCrewModal) {
+        noCrewModalShown = true;
+        Modal.getOrCreateInstance(noCrewModal).show();
+      }
       return;
     }
 
@@ -175,7 +184,7 @@ export function renderLeaderboardPage({ navigate = defaultNavigate } = {}) {
     page.querySelector('[data-league-position]').textContent = 'Try again in a moment.';
     page.querySelector('[data-league-points-label]').textContent = 'League points';
     page.querySelector('[data-league-points]').textContent = '—';
-    noCrewState.hidden = true;
+    leagueContent.hidden = false;
     waitingState.hidden = true;
     queuedState.hidden = true;
     queueButton.hidden = true;
@@ -254,10 +263,15 @@ export function renderLeaderboardPage({ navigate = defaultNavigate } = {}) {
     element: page,
     title: 'Sprout League',
     afterRender: async () => {
-      await Promise.all([
-        ecoCrewService.getLeagueOverview().then(renderLeagueOverview).catch(renderLeagueError),
-        renderCosmetics(),
-      ]);
+      try {
+        const overview = await ecoCrewService.getLeagueOverview();
+        const state = overview.queueStatus === 'queued' ? 'queued' : leagueEligibility(overview);
+        renderLeagueOverview(overview);
+        if (state !== 'no_crew') await renderCosmetics();
+      } catch (exception) {
+        renderLeagueError(exception);
+        await renderCosmetics();
+      }
     },
   };
 }

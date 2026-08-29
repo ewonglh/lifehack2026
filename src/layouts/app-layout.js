@@ -3,7 +3,7 @@ import Collapse from 'bootstrap/js/dist/collapse';
 
 const links = [
   ['/dashboard', 'Dashboard'],
-  ['/sort', 'Sort'],
+  ['/sort', 'Today’s action'],
   ['/result', 'Result'],
   ['/crew', 'Crew'],
   ['/league', 'League'],

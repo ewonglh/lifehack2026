@@ -1,12 +1,13 @@
 import { authService } from '../services/auth-service.js';
 import { useMockData } from '../config/env.js';
 import { navigate as defaultNavigate } from '../features/ecocrew/page-utils.js';
+import { getPendingInviteCode } from './join-crew-page.js';
 
 function authMarkup(isRegister) {
-  const actionLabel = isRegister ? 'Create your account' : 'Welcome back';
+  const actionLabel = isRegister ? 'Create your EcoCrew account' : 'Sign in to EcoCrew';
   const supportingText = isRegister
-    ? 'Join your crew and turn everyday choices into a shared win.'
-    : 'Pick up where your crew left off.';
+    ? 'Start one small recycling action, then build the habit with friends.'
+    : 'Pick up today’s bottle action and keep your progress moving.';
   return (
     '<main class="ecocrew-auth-page" tabindex="-1">' +
     '<div class="ecocrew-auth-header"><a class="ecocrew-wordmark ecocrew-auth-page__brand" href="#/auth"><span aria-hidden="true">✦</span> EcoCrew</a><details class="ecocrew-page-info"><summary aria-label="About EcoCrew sign in"><i class="bi bi-info-lg" aria-hidden="true"></i></summary><div class="ecocrew-page-info__panel"><strong>Sign in to EcoCrew</strong><p>Your account keeps your display name, points, crew progress, and private post summaries together.</p></div></details></div>' +
@@ -18,9 +19,6 @@ function authMarkup(isRegister) {
     '</h1><p class="ecocrew-auth-card__lead">' +
     supportingText +
     '</p><form class="ecocrew-auth-form" data-auth-form novalidate>' +
-    (isRegister
-      ? '<label>Display name<input name="name" type="text" autocomplete="name" placeholder="What should your crew call you?" required></label>'
-      : '') +
     '<label>Email address<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>' +
     '<label>Password<input name="password" type="password" autocomplete="' +
     (isRegister ? 'new-password' : 'current-password') +
@@ -61,7 +59,9 @@ export function renderAuthPage({ session, navigate = defaultNavigate } = {}) {
   };
   const continueAfterAuth = async () => {
     const state = session?.get?.();
-    navigate(state?.profile ? '/dashboard' : '/onboarding');
+    const invite = getPendingInviteCode();
+    if (invite && state?.profile) navigate('/join/' + encodeURIComponent(invite));
+    else navigate(state?.profile ? '/dashboard' : '/onboarding');
   };
 
   form.addEventListener('submit', async (event) => {
@@ -79,8 +79,12 @@ export function renderAuthPage({ session, navigate = defaultNavigate } = {}) {
       if (isRegister) {
         await authService.signUp({ email: values.email, password: values.password });
         await session?.refresh?.();
-        if (values.name && !session?.get?.().profile) {
-          await session.saveProfile({ displayName: values.name });
+        if (!session?.get?.().session?.user) {
+          showError(
+            'Account created. Check your email to confirm it, then return to EcoCrew to continue.',
+          );
+          submitButton.disabled = false;
+          return;
         }
       } else {
         await authService.signIn({ email: values.email, password: values.password });
@@ -95,7 +99,10 @@ export function renderAuthPage({ session, navigate = defaultNavigate } = {}) {
 
   page.querySelector('[data-social-login]').addEventListener('click', async () => {
     try {
-      await authService.signInWithOAuth('google');
+      const result = await authService.signInWithOAuth('google');
+      // In Supabase mode this call has already started a full-page redirect to
+      // Google. The callback page will restore the session after the redirect.
+      if (!result?.mock) return;
       await session?.refresh?.();
       await continueAfterAuth();
     } catch (exception) {

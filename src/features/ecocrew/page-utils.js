@@ -4,6 +4,11 @@ export function appShell(
   content,
   info = 'A quick EcoCrew screen for making one small choice together.',
 ) {
+  const avatarInitial =
+    String(document.body.dataset.ecocrewDisplayName || 'I')
+      .trim()
+      .charAt(0)
+      .toUpperCase() || 'I';
   const page = document.createElement('main');
   page.className = 'ecocrew-page';
   page.tabIndex = -1;
@@ -17,7 +22,9 @@ export function appShell(
     '</strong><p>' +
     escapeHtml(info) +
     '</p></div></details>' +
-    '<a class="ecocrew-avatar" href="#/profile" aria-label="Your profile">I</a>' +
+    '<a class="ecocrew-avatar" href="#/profile" aria-label="Your profile">' +
+    avatarInitial +
+    '</a>' +
     '</div></header>' +
     '<section class="ecocrew-page__intro"><p class="ecocrew-eyebrow">' +
     escapeHtml(eyebrow) +

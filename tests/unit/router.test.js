@@ -13,8 +13,8 @@ describe('route guard', () => {
     expect(guardPath('/friends', 'private', incomplete)).toBe('/onboarding'));
   it('keeps complete users out of onboarding', () =>
     expect(guardPath('/onboarding', 'onboarding', complete)).toBe('/dashboard'));
-  it('redirects anonymous users from the main route to sign in', () =>
-    expect(guardPath('/', 'public', anonymous)).toBe('/auth'));
+  it('allows anonymous users to see the habit landing page', () =>
+    expect(guardPath('/', 'public', anonymous)).toBeNull());
 });
 
 describe('competition routes', () => {
@@ -31,10 +31,10 @@ describe('competition routes', () => {
     expect(match.route.layout).toBe('app');
   });
 
-  it('redirects the root route without rendering a landing page', () => {
+  it('registers the root route as the public habit landing page', () => {
     const root = routes.find((route) => route.path === '/');
-    expect(root).toMatchObject({ redirectTo: '/auth', access: 'public', layout: 'standalone' });
-    expect(root.page).toBeUndefined();
+    expect(root).toMatchObject({ access: 'public', layout: 'standalone' });
+    expect(root.render).toBeTypeOf('function');
   });
 
   it('uses the standalone layout for onboarding and the app layout for settings', () => {

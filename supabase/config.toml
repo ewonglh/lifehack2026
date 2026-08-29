@@ -28,10 +28,10 @@ enable_signup = true
 enabled = true
 file_size_limit = "10MiB"
 
-[functions.analyze-submission]
+[functions.create-submission]
 verify_jwt = true
 
-[functions.create-submission]
+[functions.confirm-action]
 verify_jwt = true
 
 [functions.manage-squad]

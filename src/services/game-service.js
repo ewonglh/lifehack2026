@@ -13,7 +13,21 @@ async function invoke(name, body) {
   ensureBackend();
   if (!supabase) return null;
   const { data, error } = await supabase.functions.invoke(name, { body });
-  if (error) throw error;
+  if (error) {
+    let payload;
+    try {
+      payload = error.context?.clone ? await error.context.clone().json() : null;
+    } catch {
+      payload = null;
+    }
+    throw {
+      code: payload?.code || error.code || 'FUNCTION_ERROR',
+      message:
+        payload?.message || error.message || 'The EcoCrew service is temporarily unavailable.',
+      correlationId: payload?.correlationId,
+      cause: error,
+    };
+  }
   return data;
 }
 
@@ -25,15 +39,23 @@ export const gameService = {
     return state.dailyTask;
   },
 
-  async submitTask({ file, taskId, idempotencyKey, locale = 'en-SG', userSelectedBin }) {
+  async submitTask({
+    file,
+    taskId,
+    idempotencyKey,
+    locale = 'en-SG',
+    userSelectedBin,
+    demoFixture,
+  }) {
     if (!supabase) {
       const state = getMockState();
-      const result = {
+      const result = state.lastSubmission || {
         taskId,
-        validated: true,
-        points: 0,
-        validationReason: 'Demo validation passed.',
-        streak: { current: 1, longest: 1 },
+        validated: false,
+        points: { total: 0 },
+        validationReason: 'Choose a demo fixture before submitting.',
+        failureReason: 'low_confidence',
+        streak: { current: 0, longest: 0 },
       };
       updateMockState({ ...state, lastSubmission: result, dailyTask: state.dailyTask });
       lastSubmission = result;
@@ -45,8 +67,74 @@ export const gameService = {
     form.append('idempotencyKey', idempotencyKey);
     form.append('locale', locale);
     if (userSelectedBin) form.append('userSelectedBin', userSelectedBin);
+    if (demoFixture) form.append('demoFixture', demoFixture);
     lastSubmission = await invoke('create-submission', form);
     return lastSubmission;
+  },
+
+  async confirmAction({ submissionId, idempotencyKey, action = 'recycle_bottle' }) {
+    if (!supabase) {
+      const state = getMockState();
+      if (state.lastSubmission?.behaviorCheckIn?.status === 'confirmed')
+        return state.lastSubmission;
+      throw { code: 'SUBMISSION_NOT_FOUND', message: 'We could not find that action.' };
+    }
+    lastSubmission = await invoke('confirm-action', {
+      submissionId,
+      idempotencyKey,
+      action,
+    });
+    return lastSubmission;
+  },
+
+  async getSubmission(submissionId = 'latest') {
+    if (!supabase) return lastSubmission ?? getMockState().lastSubmission;
+    const actor = (await supabase.auth.getUser()).data.user?.id;
+    if (!actor) return null;
+    let query = supabase
+      .from('submissions')
+      .select(
+        'id, task_id, task_day, user_bin, final_bin, confidence, verification_status, behavior_status, behavior_confirmed_at, points, model_result, validation_reason, failure_reason, result_payload, submitted_at',
+      )
+      .eq('profile_id', actor);
+    if (submissionId && submissionId !== 'latest') query = query.eq('id', submissionId);
+    else query = query.order('submitted_at', { ascending: false }).limit(1);
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const payload = data.result_payload || {
+      submissionId: data.id,
+      taskId: data.task_id,
+      taskDay: data.task_day,
+      userSelectedBin: data.user_bin,
+      recommendedBin: data.final_bin,
+      validated: data.verification_status === 'verified',
+      points: { total: data.points || 0 },
+      validationReason: data.validation_reason,
+      failureReason: data.failure_reason,
+      classification: data.model_result,
+    };
+    const task = await this.getDailyTask().catch(() => null);
+    return {
+      ...payload,
+      submissionId: payload.submissionId || data.id,
+      task: task?.taskId === data.task_id ? task : payload.task,
+      outcome:
+        payload.outcome ??
+        (data.behavior_status === 'pending'
+          ? 'awaiting_check_in'
+          : data.behavior_status === 'confirmed' || data.verification_status === 'verified'
+            ? 'completed'
+            : data.verification_status === 'low_confidence'
+              ? 'unknown'
+              : 'failed'),
+      behaviorCheckIn: payload.behaviorCheckIn ?? {
+        action: 'recycle_bottle',
+        status: data.behavior_status || 'not_started',
+        selfReported: data.behavior_status === 'confirmed',
+        confirmedAt: data.behavior_confirmed_at || null,
+      },
+    };
   },
 
   getLastSubmission() {
@@ -75,6 +163,39 @@ export const gameService = {
     return response ?? { squadId: null, queue: null, league: null, progression: null };
   },
 
+  async getMeasurement() {
+    const response = await invoke('manage-mission', { action: 'getMeasurement' });
+    return response?.summary || null;
+  },
+
+  async getProfileStats() {
+    if (!supabase) {
+      const state = getMockState();
+      return { lifetimePoints: state.lifetimePoints || 0, bestStreak: state.bestStreak || 0 };
+    }
+    const actor = (await supabase.auth.getUser()).data.user?.id;
+    if (!actor) return { lifetimePoints: 0, bestStreak: 0 };
+    const [{ data: progress, error: progressError }, { data: streak, error: streakError }] =
+      await Promise.all([
+        supabase
+          .from('profile_progress')
+          .select('lifetime_xp')
+          .eq('profile_id', actor)
+          .maybeSingle(),
+        supabase
+          .from('user_streaks')
+          .select('longest_streak')
+          .eq('profile_id', actor)
+          .maybeSingle(),
+      ]);
+    if (progressError) throw progressError;
+    if (streakError) throw streakError;
+    return {
+      lifetimePoints: Number(progress?.lifetime_xp || 0),
+      bestStreak: Number(streak?.longest_streak || 0),
+    };
+  },
+
   async getCrewOverview() {
     if (!supabase) return { membership: null };
     const current = await this.getCurrentLeague();
@@ -97,13 +218,19 @@ export const gameService = {
     if (squadError) throw squadError;
     if (membersError) throw membersError;
 
-    const { data: mission } = await supabase
-      .from('squad_daily_missions')
-      .select('progress, mission_catalog(title, target)')
-      .eq('squad_id', current.squadId)
-      .order('mission_day', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    let mission = null;
+    let missionUnavailable;
+    try {
+      const response = await invoke('manage-mission', {
+        action: 'getCrew',
+        squadId: current.squadId,
+      });
+      mission = response?.mission ?? null;
+      missionUnavailable = !mission;
+    } catch (exception) {
+      if (String(exception?.code || '').toUpperCase() !== 'MISSION_UNAVAILABLE') throw exception;
+      missionUnavailable = true;
+    }
     const { data: events, error: eventsError } = await supabase
       .from('activity_events')
       .select(
@@ -131,12 +258,23 @@ export const gameService = {
         joinedAt: normalizedMembers.find((member) => member.id === actorId)?.joinedAt,
       },
       members: normalizedMembers,
-      mission: {
-        title: mission?.mission_catalog?.title ?? 'Weekly mission',
-        progress: Number(mission?.progress ?? 0),
-        target: Number(mission?.mission_catalog?.target ?? 100),
-        endsLabel: 'This week',
-      },
+      mission: missionUnavailable
+        ? {
+            title: 'Weekly mission unavailable',
+            progress: 0,
+            target: 1,
+            endsLabel: 'Needs setup',
+            unavailable: true,
+          }
+        : {
+            title: mission.title ?? 'Weekly mission',
+            theme: mission.theme ?? null,
+            progress: Number(mission.progress ?? 0),
+            target: Number(mission.target ?? 100),
+            missionDay: mission.mission_day ?? null,
+            endsLabel: 'This week',
+          },
+      missionUnavailable,
       streak: Number(current.squadStreak?.current_streak ?? 0),
       repairTokens: Number(current.squadStreak?.repair_tokens ?? 1),
       weeklyPoints: Number(current.league?.score ?? current.progression?.weekly_points ?? 0),
@@ -173,7 +311,7 @@ export const gameService = {
       itemName:
         post.submissions?.model_result?.itemName ??
         post.submissions?.model_result?.item_name ??
-        'Eco action',
+        'Daily task',
       finalBin: post.submissions?.final_bin ?? 'unknown',
       isCorrect: post.submissions?.matches_task ?? null,
       points: Number(post.submissions?.points ?? 0),

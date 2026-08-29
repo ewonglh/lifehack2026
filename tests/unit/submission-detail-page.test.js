@@ -3,48 +3,75 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getLastResult = vi.hoisted(() => vi.fn());
+const confirmAction = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/services/ecocrew-service.js', () => ({
-  ecoCrewService: { getLastResult },
+  ecoCrewService: { getLastResult, confirmAction },
 }));
 
 import { renderSubmissionDetailPage } from '../../src/pages/submission-detail-page.js';
 
 describe('submission result presentation', () => {
-  beforeEach(() => getLastResult.mockReset());
+  beforeEach(() => {
+    getLastResult.mockReset();
+    confirmAction.mockReset();
+  });
 
-  it('emphasizes verified task completion, preparation, explanation, and reward', async () => {
+  it('shows guidance and rewards only after a self-reported check-in', async () => {
     getLastResult.mockReturnValue({
+      submissionId: 'submission-1',
       taskId: 'recycle-plastic-bottle',
-      task: { prompt: 'Recycle a plastic drink bottle' },
-      isCorrect: true,
-      userSelectedBin: 'recycle',
+      task: {
+        title: 'Clean Bottle Check',
+        instruction:
+          'Empty a single-use plastic bottle, take a photo of it ready for recycling, then place it in recycling.',
+      },
+      outcome: 'awaiting_check_in',
+      behaviorCheckIn: { status: 'pending', selfReported: false },
       classification: {
         recommendedBin: 'recycle',
         confidence: 0.92,
         preparationTip: 'Empty and rinse it first.',
         explanation: 'The item is a PET bottle.',
       },
-      points: { total: 25, correctBin: 10, preparation: 5, dailyBonus: 10 },
+      points: { total: 0, actionCompletion: 0, preparation: 0, dailyBonus: 0 },
     });
+    const confirmed = {
+      submissionId: 'submission-1',
+      outcome: 'completed',
+      validated: true,
+      behaviorCheckIn: { status: 'confirmed', selfReported: true },
+      classification: {
+        recommendedBin: 'recycle',
+        confidence: 0.92,
+        preparationTip: 'Empty and rinse it first.',
+        explanation: 'The item is a PET bottle.',
+      },
+      points: { total: 25, actionCompletion: 10, preparation: 5, dailyBonus: 10 },
+    };
+    confirmAction.mockResolvedValue(confirmed);
     const rendered = renderSubmissionDetailPage();
 
     await rendered.afterRender();
 
     expect(rendered.element.querySelector('[data-result-kicker]').textContent).toBe(
-      'TASK COMPLETE',
+      'READY FOR CHECK-IN',
     );
-    expect(rendered.element.querySelector('[data-result-title]').textContent).toBe('Great work!');
-    expect(rendered.element.querySelector('[data-result-task]').textContent).toContain(
-      'Recycle a plastic drink bottle',
+    expect(rendered.element.querySelector('[data-action-checkin]').hidden).toBe(false);
+    expect(rendered.element.querySelector('[data-result-points]').textContent).toContain('0');
+    expect(rendered.element.textContent).toContain('self-reported');
+
+    rendered.element.querySelector('[data-action="confirm"]').click();
+    await vi.waitFor(() =>
+      expect(confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          submissionId: 'submission-1',
+          action: 'recycle_bottle',
+        }),
+      ),
     );
-    expect(rendered.element.querySelector('[data-result-tip]').hidden).toBe(false);
-    expect(
-      rendered.element.querySelector('[data-result-reason]').parentElement.querySelector('summary')
-        .textContent,
-    ).toBe('Why this result?');
-    expect(rendered.element.querySelector('[data-result-reason]').textContent).toBe(
-      'The item is a PET bottle.',
+    expect(rendered.element.querySelector('[data-result-kicker]').textContent).toBe(
+      'ACTION COMPLETE',
     );
     expect(rendered.element.querySelector('[data-result-points]').textContent).toContain('25');
   });

@@ -46,6 +46,38 @@ export function optionalBoolean(source: Record<string, unknown>, key: string): b
   return value;
 }
 
+export function optionalNullableBoolean(
+  source: Record<string, unknown>,
+  key: string,
+): boolean | null {
+  const value = source[key];
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'boolean') {
+    throw new ApiError(400, 'INVALID_REQUEST', `${key} must be a boolean.`);
+  }
+  return value;
+}
+
+export function optionalNullableNumber(
+  source: Record<string, unknown>,
+  key: string,
+): number | null {
+  const value = source[key];
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new ApiError(400, 'INVALID_REQUEST', `${key} must be a number between 0 and 1.`);
+  }
+  return value;
+}
+
+export function requireBoolean(source: Record<string, unknown>, key: string): boolean {
+  const value = source[key];
+  if (typeof value !== 'boolean') {
+    throw new ApiError(400, 'INVALID_REQUEST', `${key} must be a boolean.`);
+  }
+  return value;
+}
+
 export function requireInteger(
   source: Record<string, unknown>,
   key: string,

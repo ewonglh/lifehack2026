@@ -7,6 +7,7 @@ const getCosmetics = vi.hoisted(() => vi.fn());
 const equipCosmetic = vi.hoisted(() => vi.fn());
 const queueForLeague = vi.hoisted(() => vi.fn());
 const cancelLeagueQueue = vi.hoisted(() => vi.fn());
+const showModal = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/services/ecocrew-service.js', () => ({
   ecoCrewService: {
@@ -15,6 +16,12 @@ vi.mock('../../src/services/ecocrew-service.js', () => ({
     equipCosmetic,
     queueForLeague,
     cancelLeagueQueue,
+  },
+}));
+
+vi.mock('bootstrap/js/dist/modal', () => ({
+  default: {
+    getOrCreateInstance: vi.fn(() => ({ show: showModal })),
   },
 }));
 
@@ -27,6 +34,7 @@ describe('league page states', () => {
     equipCosmetic.mockResolvedValue(null);
     queueForLeague.mockReset();
     cancelLeagueQueue.mockReset();
+    showModal.mockReset();
   });
 
   it('shows a join-crew state without seeded standings for unaffiliated users', async () => {
@@ -41,10 +49,25 @@ describe('league page states', () => {
     await rendered.afterRender();
 
     expect(rendered.element.dataset.leagueState).toBe('no_crew');
-    expect(rendered.element.querySelector('[data-league-no-crew]').hidden).toBe(false);
+    expect(rendered.element.querySelector('[data-league-content]').hidden).toBe(true);
+    expect(rendered.element.querySelector('[data-league-summary]').hidden).toBe(false);
     expect(rendered.element.querySelector('[data-league-rankings]').hidden).toBe(true);
     expect(rendered.element.querySelector('[data-league-points]').textContent).toBe('—');
     expect(rendered.element.textContent).not.toContain('Glass Guardians');
+    expect(rendered.element.querySelector('[data-league-no-crew-modal]')).not.toBeNull();
+    expect(showModal).toHaveBeenCalledTimes(1);
+    expect(getCosmetics).not.toHaveBeenCalled();
+  });
+
+  it('routes the league modal to the crew tab', async () => {
+    getLeagueOverview.mockResolvedValue({ eligibility: 'no_crew', rows: [] });
+    const navigate = vi.fn();
+    const rendered = renderLeaderboardPage({ navigate });
+
+    await rendered.afterRender();
+    rendered.element.querySelector('[data-league-no-crew-modal] [data-action="crew"]').click();
+
+    expect(navigate).toHaveBeenCalledWith('/crew');
   });
 
   it('shows an unranked state without rendering a rank or score', async () => {
@@ -66,6 +89,7 @@ describe('league page states', () => {
     expect(rendered.element.querySelector('[data-league-rankings]').textContent).not.toContain(
       'Another Crew',
     );
+    expect(showModal).not.toHaveBeenCalled();
   });
 
   it('preserves rankings for an eligible crew', async () => {

@@ -147,7 +147,7 @@ type ScoreEvent = {
   playerId: string;
   crewId: string | null;
   scanEventId: string | null;
-  actionType: "correct_sort" | "prep_step" | "daily_first" | "mission" | "streak_bonus";
+  actionType: "action_completed" | "prep_step" | "daily_first" | "mission" | "streak_bonus";
   points: number;
   scoringRuleVersion: string;
   occurredAt: string;
@@ -209,6 +209,37 @@ type ProfilePost = {
   imageVisible: boolean;
 };
 
+type DailyTask = {
+  taskId: string;
+  taskDay: string;
+  title: string;
+  instruction: string;
+  prompt: string;
+  locale: string;
+  localeRuleVersion: string;
+  targetObject: string;
+  targetMaterial: string | null;
+  targetAction: DisposalBin;
+  validationMetadata: Record<string, unknown>;
+};
+
+type ClassificationResult = {
+  itemName: string;
+  material: string | null;
+  recommendedBin: DisposalBin | "unknown";
+  preparationTip: string | null;
+  confidence: number;
+  localeRuleVersion: string;
+  explanation: string | null;
+  taskPrompt: string;
+  promptSimilarity: number;
+  taskSatisfied: boolean;
+  matchesTask: boolean;
+  taskConfidence: number;
+  taskReason: string | null;
+  failureReason: "liquid_present" | "unrelated_item" | "recycling_context_missing" | "low_confidence" | "upload_failure" | "ai_failure" | null;
+};
+
 type CrewMembership = {
   crewId: string;
   crewName: string;
@@ -224,35 +255,50 @@ Crew Create and Join mutations return the same normalized `CrewMembership` shape
 ### 6.1 Classify-and-score request
 
 ```ts
-type ClassifyAndScoreRequest = {
+type SubmitTaskRequest = {
+  image: File;
+  taskId: string;
   idempotencyKey: string;
-  imageStoragePath: string;
-  userSelectedBin: DisposalBin;
   locale: string;
-  crewId?: string;
+  demoFixture?: "liquid_bottle" | "empty_bottle" | "unrelated_item";
 };
+
+// Legacy userSelectedBin fields may be sent by an older client for a short
+// compatibility window, but they are ignored and never affect scoring.
 ```
 
 Validation rules:
 
-- Requesting user owns the image path.
+- The image is accepted only as ephemeral multipart data; no task image path is trusted or persisted.
 - File type/size limits are verified server-side.
-- `crewId`, if supplied, belongs to the requesting user.
-- Bin values are enum-validated.
+- The authenticated actor is derived from the session; no actor ID is accepted from the browser.
 - A request is rate-limited before calling the VLM.
 
 ### 6.2 Response
 
 ```ts
-type ClassifyAndScoreResponse = {
-  scanEventId: string;
-  post: ProfilePost;
+type SubmitTaskResponse = {
+  submissionId: string;
   classification: ClassificationResult;
-  userSelectedBin: DisposalBin;
-  outcome: "confirmed" | "needs_confirmation" | "unknown";
+  outcome: "awaiting_check_in" | "completed" | "failed" | "unknown";
+  behaviorCheckIn: {
+    action: "recycle_bottle";
+    status: "pending" | "confirmed";
+    selfReported: boolean;
+    confirmedAt: string | null;
+  };
+};
+
+type ConfirmActionRequest = {
+  submissionId: string;
+  idempotencyKey: string;
+  action: "recycle_bottle";
+};
+
+type ConfirmActionResponse = SubmitTaskResponse & {
   awarded: Array<{ actionType: string; points: number }>;
   points: {
-    correctBin: number;
+    actionCompletion: number;
     preparation: number;
     dailyBonus: number;
     total: number;
@@ -266,7 +312,7 @@ type ClassifyAndScoreResponse = {
 };
 ```
 
-The frontend renders this response; it does not recalculate awards. A high-confidence image with a different selected bin returns `needs_confirmation` with zero accuracy points, while low-confidence and unknown classifications return `unknown` with zero scoring.
+The frontend renders these responses; it does not recalculate awards. A successful photo validation returns `awaiting_check_in` with zero points. The self-reported confirmation operation is idempotent and is the only operation that awards preparation, action-completion, daily, streak, or crew progress. The photo validates preparation and recycling context; it does not prove that disposal occurred.
 
 ### 6.3 Error contract
 
@@ -282,7 +328,7 @@ All endpoints return a stable error code and safe user message:
 | `ALREADY_IN_CREW` | Refresh membership and hide Join/Create controls |
 | `HANDLE_TAKEN` | Keep profile edits and request another handle |
 | `RATE_LIMITED` | Explain when to try again; preserve the user’s current screen |
-| `MODEL_UNAVAILABLE` | Offer retry/manual guidance; do not imply the item was classified |
+| `AI_FAILURE` | Offer retry/manual guidance; do not imply the item was classified |
 | `DUPLICATE_REQUEST` | Rehydrate and display the original response |
 | `INTERNAL_ERROR` | Apologize, provide retry, and log an opaque correlation ID |
 
@@ -294,7 +340,7 @@ All endpoints return a stable error code and safe user message:
 |---|---|
 | Authentication/session | Supabase Auth |
 | Profile and crew membership | Postgres tables protected by RLS |
-| Scan image bytes | Private Supabase Storage bucket |
+| Scan image bytes | Ephemeral Edge Function request; never persisted |
 | Classification and score events | Postgres, created through trusted function |
 | Mission/rules configuration | Versioned server-side configuration/table |
 | UI cache | Client query cache only; disposable |
@@ -302,13 +348,13 @@ All endpoints return a stable error code and safe user message:
 ### 7.2 Access controls
 
 - RLS is enabled on every user-data table.
-- Direct client writes are limited to safe profile preferences and uploads to the user-owned path; sensitive mutations go through Edge Functions/RPCs.
-- Storage policies ensure users can access only their own original images unless explicitly shared.
+- Direct client writes are limited to safe profile preferences; sensitive task mutations and any avatar upload go through Edge Functions/RPCs.
+- Task photos are never placed in Storage. Avatar policies ensure users can access only their own avatar objects.
 - Service-role credentials exist only in server-side runtime.
 
 ### 7.3 Retention and deletion
 
-- Define a retention period for raw images; prefer automatic deletion after classification where feasible.
+- Task images are discarded after classification. Avatar retention follows profile deletion and replacement cleanup rules.
 - Deletion of an image should not require deleting an aggregated, non-identifying score event unless legally required.
 - Deleting a profile should revoke access immediately and cascade/anonymize data according to a documented policy.
 
@@ -332,8 +378,8 @@ Initial events:
 | Event | Required properties | Product question |
 |---|---|---|
 | `daily_challenge_started` | player/crew anonymized IDs, mission ID | Do players begin the loop? |
-| `sort_submitted` | selected bin, locale, confidence band | Is the interaction understandable? |
-| `sort_completed` | outcome, points, duration band | Is the loop fast and satisfying? |
+| `action_photo_submitted` | locale, confidence band, outcome | Can participants complete the preparation step? |
+| `action_completed` | self-reported, points, duration band | Do participants complete the recycling action? |
 | `profile_post_created` | post visibility, image-visible boolean | Do players value keeping a history of eco actions? |
 | `classification_corrected` | model bin, final bin, reason optional | Where is model guidance failing? |
 | `crew_created/joined` | crew ID, entry method | Do players form or join crews? |
@@ -372,25 +418,25 @@ When an implementation choice is unclear, choose the option that:
 
 Record deviations from these contracts with a short reason, owner, and expiry/review date.
 
-## 12. Current frontend prototype contract
+## 12. Local mock adapter contract
 
-Until Supabase integration is complete, `src/features/ecocrew/scan-service.js` provides a disposable browser adapter. This section documents its behavior so it is not mistaken for the production security model.
+When `VITE_USE_MOCK_DATA=true` in development, `src/features/ecocrew/scan-service.js` provides a disposable browser adapter. Supabase mode is the production path and keeps identity, scoring, task completion, and progress server-authoritative.
 
 ### Browser keys
 
 - `localStorage.ecocrew-demo-state` stores profile edits, post summaries, points, daily usage, the active Singapore task day, the submitted task day, crew membership, mission progress, the last result, and reactions.
 - `sessionStorage.ecocrew-demo-signed-in` records that a mock login/register action was completed.
-- Neither value proves identity or authorization. Route access is not currently guarded.
+- Neither value proves identity or authorization. They are never read in Supabase mode.
 
 ### Prototype behaviors
 
-- Image analysis always returns the deterministic bottle fixture after a short delay.
-- The browser currently calculates demo points and mission progress.
+- The mock adapter exposes three deterministic outcomes: liquid-present bottle, empty bottle, and unrelated item.
+- The browser calculates points only in local mock mode; Supabase scoring is performed by the trusted submission and confirmation RPCs.
 - The browser stores lifetime points independently from daily and weekly points. It resets weekly league points on the first read after a Monday `00:00` Asia/Singapore boundary.
-- A mock player may complete the assigned task once per Singapore calendar day. Repeating the same idempotency key returns the original result; a different key for the same day returns `DAILY_TASK_ALREADY_SUBMITTED`.
+- A mock player may retry failed attempts throughout the Singapore calendar day. A successful photo creates a pending check-in with no points; only the self-reported confirmation completes and locks the task. Repeating the same idempotency key returns the original result.
 - Players without an active crew can still earn personal points, but do not display or accrue crew weekly points or mission progress until they join or create one.
-- Completing the flow creates a profile post summary in local storage; the selected local image is previewed with an object URL and is not persisted.
-- Join accepts any invite string of at least three characters and maps it to the seeded Glass Guardians crew.
+- Completing the flow creates a metadata-only profile post summary; the selected local image is previewed with an object URL and is not persisted.
+- Join uses a six-character invite code and the seeded `ECO123` Glass Guardians invitation.
 - Create accepts a crew name and derives a demonstration invite code locally.
 - Deleting a locally created crew clears its local membership and crew-scoped demo progress. Production deletion still requires an owner-authorized atomic backend operation that removes every membership and revokes invites.
 - X, Telegram, and WhatsApp open web sharing URLs. Instagram copies the invite URL because the prototype cannot target the Instagram app directly.

@@ -21,14 +21,20 @@ function membershipForm(mode) {
     (joining ? 'Enter your invite code' : 'Name your new crew') +
     '</h2></div><button class="btn btn-link" type="button" data-cancel-membership>Cancel</button></div><label>' +
     (joining ? 'Invite code' : 'Crew name') +
-    '<input name="value" type="text" minlength="3" maxlength="40" required></label><p class="ecocrew-form-error" data-crew-error role="alert" hidden></p><button class="btn ecocrew-btn-primary" type="submit">' +
+    '<input name="value" type="text" minlength="' +
+    (joining ? '6' : '3') +
+    '" maxlength="' +
+    (joining ? '6' : '40') +
+    '" autocomplete="' +
+    (joining ? 'one-time-code' : 'off') +
+    '" required></label><p class="ecocrew-form-error" data-crew-error role="alert" hidden></p><button class="btn ecocrew-btn-primary" type="submit">' +
     (joining ? 'Join crew' : 'Create crew') +
     '</button></form>'
   );
 }
 
 function inviteMenu() {
-  return '<details class="ecocrew-invite-menu"><summary class="btn ecocrew-btn-secondary"><i class="bi bi-share" aria-hidden="true"></i><span>Invite</span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary><div class="ecocrew-invite-menu__panel" aria-label="Share crew invite"><button type="button" data-share="x"><i class="bi bi-twitter-x" aria-hidden="true"></i><span>X</span></button><button type="button" data-share="instagram"><i class="bi bi-instagram" aria-hidden="true"></i><span>Instagram</span></button><button type="button" data-share="telegram"><i class="bi bi-telegram" aria-hidden="true"></i><span>Telegram</span></button><button type="button" data-share="whatsapp"><i class="bi bi-whatsapp" aria-hidden="true"></i><span>WhatsApp</span></button><p data-share-status role="status"></p></div></details>';
+  return '<details class="ecocrew-invite-menu"><summary class="btn ecocrew-btn-secondary"><i class="bi bi-share" aria-hidden="true"></i><span>Invite</span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary><div class="ecocrew-invite-menu__panel" aria-label="Share crew invite"><button type="button" data-share="native"><i class="bi bi-phone" aria-hidden="true"></i><span>Share link</span></button><button type="button" data-share="x"><i class="bi bi-twitter-x" aria-hidden="true"></i><span>X</span></button><button type="button" data-share="instagram"><i class="bi bi-instagram" aria-hidden="true"></i><span>Instagram</span></button><button type="button" data-share="telegram"><i class="bi bi-telegram" aria-hidden="true"></i><span>Telegram</span></button><button type="button" data-share="whatsapp"><i class="bi bi-whatsapp" aria-hidden="true"></i><span>WhatsApp</span></button><p data-share-status role="status"></p></div></details>';
 }
 
 function emptyCrew() {
@@ -39,6 +45,7 @@ function crewContent(overview) {
   const membership = overview.membership;
   const members = overview.members || [];
   const mission = overview.mission || {};
+  const missionUnavailable = overview.missionUnavailable === true || mission.unavailable === true;
   const activity = overview.activity || [];
   return (
     '<section class="ecocrew-crew-section" aria-labelledby="your-crew-title"><div class="ecocrew-crew-title-row"><div><p class="ecocrew-kicker">YOUR CREW</p><h2 id="your-crew-title">' +
@@ -80,6 +87,9 @@ function crewContent(overview) {
     escapeHtml(mission.endsLabel || '') +
     '</span></div>' +
     progressBar(mission.progress, mission.target, 'Mission progress') +
+    (missionUnavailable
+      ? '<p class="ecocrew-muted">Mission setup is temporarily unavailable. Your crew membership and leave controls are still available.</p>'
+      : '') +
     '<div class="ecocrew-mission-card__footer"><strong>' +
     Number(mission.progress || 0) +
     ' / ' +
@@ -112,10 +122,24 @@ function crewContent(overview) {
 
 async function copyInvite(link, status) {
   try {
-    await window.navigator.clipboard.writeText(link);
+    if (window.navigator.clipboard?.writeText) await window.navigator.clipboard.writeText(link);
+    else throw new Error('Clipboard unavailable');
     status.textContent = 'Invite link copied.';
   } catch {
-    status.textContent = link;
+    const fallback = document.createElement('textarea');
+    fallback.value = link;
+    fallback.setAttribute('readonly', '');
+    fallback.style.position = 'fixed';
+    fallback.style.opacity = '0';
+    document.body.append(fallback);
+    fallback.select();
+    try {
+      document.execCommand('copy');
+      status.textContent = 'Invite link copied.';
+    } catch {
+      status.textContent = link;
+    }
+    fallback.remove();
   }
 }
 
@@ -128,17 +152,33 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
   );
   const content = page.querySelector('[data-crew-content]');
 
+  function renderCrewOverview(overview) {
+    content.innerHTML = overview.membership
+      ? crewContent(overview)
+      : membershipActions() + emptyCrew();
+    bindCrewActions(overview);
+  }
+
+  function isNoCrewFailure(exception) {
+    const code = String(exception?.code || '').toUpperCase();
+    const message = String(exception?.message || '').toLowerCase();
+    return (
+      ['NO_CREW', 'CREW_NOT_FOUND'].includes(code) || message.includes('you have not joined a crew')
+    );
+  }
+
   async function loadCrew() {
     try {
       const overview = await ecoCrewService.getCrewOverview();
-      content.innerHTML = overview.membership
-        ? crewContent(overview)
-        : membershipActions() + emptyCrew();
-      bindCrewActions(overview);
+      renderCrewOverview(overview);
     } catch (exception) {
+      if (isNoCrewFailure(exception)) {
+        renderCrewOverview({ membership: null });
+        return;
+      }
       content.innerHTML =
         '<p class="ecocrew-form-error" role="alert">' +
-        escapeHtml(exception.message || 'Crew data is unavailable.') +
+        'We could not load your crew yet. Please try again in a moment.' +
         '</p>' +
         membershipActions();
       bindCrewActions({ membership: null });
@@ -210,16 +250,23 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
       button.addEventListener('click', async () => {
         const invite = await ecoCrewService.createInvite(overview.membership);
         const inviteCode = invite.inviteCode || '';
-        const link = window.location.origin + window.location.pathname + '#/crew';
+        const link =
+          invite.inviteUrl ||
+          window.location.origin + window.location.pathname + '#/join/' + inviteCode;
         const message =
           'Join my EcoCrew, ' +
           overview.membership.crewName +
           '! Use invite code ' +
           inviteCode +
           '.';
-        if (button.dataset.share === 'instagram') {
+        if (button.dataset.share === 'native' && window.navigator.share) {
+          await window.navigator.share({ title: 'Join my EcoCrew', text: message, url: link });
+          status.textContent = 'Invite ready to share.';
+          menu.open = false;
+        } else if (button.dataset.share === 'native' || button.dataset.share === 'instagram') {
           await copyInvite(link, status);
-          status.textContent = 'Link copied — paste it into Instagram.';
+          if (button.dataset.share === 'instagram')
+            status.textContent = 'Link copied — paste it into Instagram.';
         } else {
           const urls = {
             x:

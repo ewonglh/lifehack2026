@@ -45,7 +45,7 @@ function profileContent(data) {
     Number(data.lifetimePoints || 0).toLocaleString() +
     '</strong><span>total points</span></article><article><strong>' +
     posts.length +
-    '</strong><span>posts shared</span></article><article><strong>' +
+    '</strong><span>tasks completed</span></article><article><strong>' +
     (Number(data.bestStreak || 0) ? Number(data.bestStreak) + ' 🔥' : '—') +
     '</strong><span>best streak</span></article></section>' +
     '<section class="ecocrew-card ecocrew-profile-collection"><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">CURRENT LOOK</p><h2>' +
@@ -71,8 +71,8 @@ function profileContent(data) {
       )
       .join('') +
     '</div></section>' +
-    '<section class="ecocrew-profile-posts"><div class="ecocrew-section-heading"><h2>My posts</h2><span>' +
-    (posts.length ? 'Your latest eco wins' : 'Your eco story starts here') +
+    '<section class="ecocrew-profile-posts"><div class="ecocrew-section-heading"><h2>Task history</h2><span>' +
+    (posts.length ? 'Your latest daily tasks' : 'Your task history starts here') +
     '</span></div>' +
     (posts.length
       ? posts
@@ -81,9 +81,9 @@ function profileContent(data) {
               '<article class="ecocrew-profile-post"><span aria-hidden="true">' +
               (post.isCorrect ? '♻' : '💡') +
               '</span><div><strong>' +
-              escapeHtml(post.itemName || 'Eco action') +
+              escapeHtml(post.itemName || 'Daily task') +
               '</strong><p>' +
-              (post.isCorrect ? 'Sorted correctly' : 'Guidance received') +
+              (post.isCorrect ? 'Daily task completed' : 'Guidance received') +
               ' · ' +
               escapeHtml(post.finalBin || post.bin || 'unknown') +
               '</p><small>' +
@@ -93,7 +93,7 @@ function profileContent(data) {
               ' points</small></div></article>',
           )
           .join('')
-      : '<div class="ecocrew-posts-empty"><span aria-hidden="true">📷</span><strong>No posts yet</strong><p>Share your first recycling win with your crew.</p><button class="btn ecocrew-btn-primary" type="button" data-create-post>Create a post</button></div>') +
+      : '<div class="ecocrew-posts-empty"><span aria-hidden="true">📷</span><strong>No daily tasks yet</strong><p>Complete your first daily task with your crew.</p><button class="btn ecocrew-btn-primary" type="button" data-create-post>Start a daily task</button></div>') +
     '</section><section class="ecocrew-profile-actions" aria-label="Profile actions"><button type="button" data-settings><i class="bi bi-gear" aria-hidden="true"></i> Settings <i class="bi bi-chevron-right" aria-hidden="true"></i></button><button type="button" data-privacy><i class="bi bi-shield-check" aria-hidden="true"></i> Privacy & photo controls <i class="bi bi-chevron-right" aria-hidden="true"></i></button><button type="button" data-logout><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Log out <i class="bi bi-chevron-right" aria-hidden="true"></i></button></section></div>'
   );
 }
@@ -115,7 +115,7 @@ export function renderProfilePage({ session, sessionState, navigate = defaultNav
     'Your eco identity',
     'Profile',
     '<div data-profile-content><p class="ecocrew-muted">Loading your profile…</p></div>',
-    'View your display name, lifetime progress, cosmetics, and metadata-only post history. Photos remain private by default.',
+    'View your display name, lifetime progress, cosmetics, and daily task history. Photos remain private by default.',
   );
   const userId = sessionState?.session?.user?.id || 'mock-user';
   let latestData;
