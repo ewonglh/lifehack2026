@@ -3,7 +3,11 @@ import { html } from '../lib/dom.js';
 import Collapse from 'bootstrap/js/dist/collapse';
 
 const links = [
-  ['/dashboard', 'Home'],
+  ['/dashboard', 'Dashboard'],
+  ['/sort', 'Sort'],
+  ['/result', 'Result'],
+  ['/crew', 'Crew'],
+  ['/league', 'League'],
   ['/friends', 'Friends'],
   ['/profile', 'Profile'],
   ['/settings', 'Settings'],
@@ -13,7 +17,7 @@ export function appLayout(content, currentPath, profile) {
   const nav = links
     .map(
       ([path, label]) =>
-        `<li class="nav-item"><a class="nav-link ${currentPath === path ? 'active' : ''}" href="#${path}">${label}</a></li>`,
+        `<li class="nav-item"><a class="nav-link ${currentPath === path || (path === '/result' && currentPath.startsWith('/result/')) ? 'active' : ''}" href="#${path}">${label}</a></li>`,
     )
     .join('');
   return html`<div class="app-shell d-flex flex-column">
