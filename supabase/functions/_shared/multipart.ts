@@ -1,4 +1,6 @@
 import { ApiError } from './errors.ts';
+import { requireBin } from './validation.ts';
+import type { DisposalBin } from './validation.ts';
 
 const maximumTaskImageBytes = 10 * 1024 * 1024;
 const supportedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -8,6 +10,7 @@ export type TaskImageForm = {
   taskId?: string;
   idempotencyKey: string;
   locale: string;
+  userSelectedBin?: DisposalBin;
 };
 
 export async function parseTaskImageForm(request: Request, requireIdempotencyKey = true): Promise<TaskImageForm> {
@@ -34,10 +37,16 @@ export async function parseTaskImageForm(request: Request, requireIdempotencyKey
   }
   const taskId = form.get('taskId');
   const locale = form.get('locale');
+  const userSelectedBinValue = form.get('userSelectedBin');
+  const userSelectedBin =
+    typeof userSelectedBinValue === 'string'
+      ? requireBin({ userSelectedBin: userSelectedBinValue }, 'userSelectedBin')
+      : undefined;
   return {
     image,
     taskId: typeof taskId === 'string' && taskId ? taskId : undefined,
     idempotencyKey: typeof idempotencyKey === 'string' && idempotencyKey ? idempotencyKey : `preview-${crypto.randomUUID()}`,
     locale: typeof locale === 'string' && locale ? locale : 'en-SG',
+    userSelectedBin,
   };
 }

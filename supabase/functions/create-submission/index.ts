@@ -42,6 +42,9 @@ Deno.serve(async (request: Request) => {
     const context = await createRequestContext(request);
     await enforceRateLimit(context.admin, context.user.id, 'create-submission', 10, 60);
     const form = await parseTaskImageForm(request);
+    if (!form.userSelectedBin) {
+      throw new ApiError(400, 'BIN_SELECTION_REQUIRED', 'Choose a disposal bin before submitting.');
+    }
     const task = await getDailyTask(context.admin, context.user.id);
     if (form.taskId && form.taskId !== task.taskId) {
       throw new ApiError(409, 'DAILY_TASK_MISMATCH', 'This is not your assigned task.');
@@ -64,11 +67,12 @@ Deno.serve(async (request: Request) => {
       p_idempotency_key: form.idempotencyKey,
       p_model_result: classification,
       p_matches_task: matchesTask,
-      p_confidence: classification.taskConfidence ?? classification.confidence,
+      p_confidence: classification.confidence,
       p_validation_reason: classification.taskReason ?? classification.explanation,
       p_item_name: classification.itemName,
       p_material: classification.material,
       p_recommended_bin: classification.recommendedBin,
+      p_user_selected_bin: form.userSelectedBin,
       p_squad_id: squadId,
     });
     if (error || !data) {

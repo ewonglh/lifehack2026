@@ -1,17 +1,49 @@
-import { avatar } from '../components/avatar.js';
 import { escapeHtml } from '../lib/dom.js';
+import { navigate as defaultNavigate, standaloneShell } from '../features/ecocrew/page-utils.js';
 
-export const signedInPage = ({ session, profile, profileError }) => {
-  const user = session?.user;
+function displayName(profile, email) {
+  return profile?.displayName || profile?.display_name || email || 'EcoCrew member';
+}
+
+export function renderSignedInPage({ session, rawSession, profile, profileError, navigate = defaultNavigate } = {}) {
+  const currentSession = rawSession || (session?.user ? session : session?.get?.()?.session);
+  const user = currentSession?.user;
   const email = user?.email || 'Authenticated user';
+  const name = displayName(profile, email);
   const nextPath = profile ? '/dashboard' : '/onboarding';
   const nextLabel = profile ? 'Go to dashboard' : 'Complete your profile';
   const recovery = profileError
-    ? `<div class="alert alert-warning mt-4" role="alert"><strong>Your sign-in worked, but your profile is unavailable.</strong><p class="mb-0 mt-1">${escapeHtml(profileError.message)} You can continue to onboarding or ask an administrator to check the profiles table.</p></div>`
+    ? '<div class="ecocrew-form-error" role="alert"><strong>Your sign-in worked, but your profile is unavailable.</strong><p>' +
+      escapeHtml(profileError.message) +
+      ' You can continue to onboarding or ask an administrator to check your profile.</p></div>'
     : '';
+  const page = standaloneShell(
+    'You’re signed in',
+    'Authentication complete',
+    '<section class="ecocrew-card ecocrew-signed-in-card" aria-labelledby="signed-in-title"><div class="ecocrew-onboarding-avatar" aria-hidden="true">' +
+      escapeHtml(name.charAt(0).toUpperCase()) +
+      '</div><p class="ecocrew-kicker">WELCOME TO THE CREW</p><h2 id="signed-in-title">Your account is ready.</h2><p class="ecocrew-muted">' +
+      escapeHtml(email) +
+      '</p><p class="ecocrew-signed-in-id">User ID: ' +
+      escapeHtml(user?.id || 'unavailable') +
+      '</p>' +
+      recovery +
+      '<div class="ecocrew-actions"><a class="btn ecocrew-btn-primary" href="#' +
+      nextPath +
+      '">' +
+      nextLabel +
+      '</a><button class="btn ecocrew-btn-secondary" type="button" data-sign-out>Log out</button></div></section>',
+    'Confirm that your EcoCrew session is ready, then continue to your profile or dashboard.',
+  );
 
-  return {
-    title: 'Signed in',
-    content: `<section class="row justify-content-center"><div class="col-lg-7"><div class="surface-card card"><div class="card-body p-4 p-md-5 text-center">${avatar(profile || { display_name: email }, 'lg')}<p class="text-success fw-semibold mt-4 mb-1">Authentication complete</p><h1 class="h2">You’re signed in.</h1><p class="text-secondary mb-1">${escapeHtml(email)}</p><p class="text-secondary small">User ID: ${escapeHtml(user?.id || ' unavailable')}</p>${recovery}<div class="d-flex justify-content-center gap-2 flex-wrap mt-4"><a class="btn btn-primary" href="#${nextPath}">${nextLabel}</a><button class="btn btn-outline-secondary" type="button" data-sign-out>Log out</button></div></div></div></div></section>`,
-  };
+  page.querySelector('[data-sign-out]')?.addEventListener('click', async () => {
+    await session?.signOut?.();
+    navigate('/auth');
+  });
+  return { element: page, title: 'Signed in' };
+}
+
+export const signedInPage = ({ session, profile, profileError } = {}) => {
+  const rendered = renderSignedInPage({ rawSession: session, profile, profileError });
+  return { title: rendered.title, content: rendered.element.outerHTML };
 };

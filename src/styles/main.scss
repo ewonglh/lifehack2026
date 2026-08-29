@@ -1,8 +1,16 @@
 @use "bootstrap-overrides";
 @use "tokens";
+@use "features/ecocrew-game";
+
+html {
+  background: #f7f4ea;
+}
 
 body {
   min-width: 320px;
+  margin: 0;
+  color: var(--eco-ink);
+  background: var(--eco-cream);
 }
 
 .app-shell {
@@ -11,6 +19,114 @@ body {
 
 .app-main {
   padding-block: 2rem 4rem;
+}
+
+.app-layout {
+  min-height: 100vh;
+  padding-bottom: 5rem;
+}
+
+.ecocrew-public-page {
+  --eco-ink: #173d36;
+  --eco-moss: #24725a;
+  --eco-lime: #d7f25a;
+  --eco-cream: #f7f4ea;
+  min-height: 100vh;
+  color: var(--eco-ink);
+  background: var(--eco-cream);
+}
+
+.ecocrew-public-header {
+  display: flex;
+  max-width: 44rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  margin: auto;
+}
+
+.ecocrew-public-header__actions {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+
+.ecocrew-public-header .ecocrew-wordmark {
+  color: var(--eco-ink);
+  text-decoration: none;
+}
+
+.ecocrew-public-content {
+  max-width: 44rem;
+  min-height: calc(100vh - 8rem);
+  padding: 1.25rem 1.25rem 3rem;
+  margin: auto;
+}
+
+.ecocrew-public-footer {
+  padding: 1.25rem;
+  border-top: 2px solid #cbd8d1;
+  color: #536862;
+  font-size: .75rem;
+  text-align: center;
+}
+
+.ecocrew-public-message {
+  max-width: 38rem;
+  padding: clamp(1.5rem, 6vw, 2.5rem);
+  margin: 2rem auto;
+  border: 2px solid var(--eco-ink);
+  border-radius: 1.5rem;
+  background: white;
+  box-shadow: 4px 4px 0 var(--eco-ink);
+}
+
+.ecocrew-public-message h1 {
+  margin-bottom: .5rem;
+  font-size: clamp(2rem, 8vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -.05em;
+}
+
+.ecocrew-public-message p:not(.ecocrew-kicker) {
+  color: #536862;
+}
+
+.app-bottom-nav {
+  position: fixed;
+  z-index: 10;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  gap: .25rem;
+  padding: .45rem max(1rem, env(safe-area-inset-right)) calc(.45rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  border-top: 2px solid #173d36;
+  background: rgb(247 244 234 / 96%);
+  backdrop-filter: blur(10px);
+
+  a {
+    display: grid;
+    min-width: 4.25rem;
+    place-items: center;
+    padding: .25rem .6rem;
+    border-radius: .65rem;
+    color: #426057;
+    font-size: .7rem;
+    font-weight: 700;
+    text-decoration: none;
+
+    i {
+      font-size: 1.1rem;
+    }
+
+    &.is-active {
+      background: #d7f25a;
+      color: #173d36;
+    }
+  }
 }
 
 .brand-mark {

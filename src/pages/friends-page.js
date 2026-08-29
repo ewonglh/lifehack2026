@@ -1,31 +1,188 @@
-import { announce, escapeHtml } from '../lib/dom.js';
-import { gameService } from '../services/game-service.js';
+import { ecoCrewService } from '../services/ecocrew-service.js';
+import { appShell, escapeHtml, navigate as defaultNavigate, progressBar } from '../features/ecocrew/page-utils.js';
 
-function leaderboardRows(rows) {
-  if (!rows.length) return '<p class="text-secondary mb-0">No leaderboard data yet.</p>';
-  return `<div class="list-group">${rows.map((row) => `<div class="list-group-item d-flex justify-content-between align-items-center"><span><strong>#${row.rank}</strong> ${escapeHtml(row.display_name)}</span><span>${row.completed_tasks} tasks · ${row.current_streak} day streak</span></div>`).join('')}</div>`;
+function membershipActions() {
+  return '<section class="ecocrew-crew-actions" aria-labelledby="find-crew-title"><div><p class="ecocrew-kicker">PLAY TOGETHER</p><h2 id="find-crew-title">Find your people</h2><p>Join with an invite code or start a new crew.</p></div><div><button class="btn ecocrew-btn-secondary" type="button" data-membership-action="join">Join</button><button class="btn ecocrew-btn-primary" type="button" data-membership-action="create">Create</button></div></section>';
 }
 
-export const friendsPage = () => ({
-  title: 'Contacts and leaderboards',
-  content: `<div class="page-intro mb-4"><h1>Contacts</h1><p class="text-secondary">Compare your task performance with crew members and contacts who have EcoCrew accounts.</p></div><section class="surface-card card mb-4"><div class="card-body"><h2 class="h5">Sync contacts</h2><p class="small text-secondary">Syncing is opt-in. EcoCrew stores hashed identifiers, not your address book.</p><div class="d-flex gap-2 flex-wrap"><button class="btn btn-outline-primary" data-contact-provider="google">Connect Google Contacts</button><button class="btn btn-outline-primary" data-contact-provider="facebook">Connect Facebook</button></div></div></section><section class="mb-4"><h2 class="h4">Crew leaderboard</h2><div data-crew-leaderboard>Loading…</div></section><section><h2 class="h4">Contact leaderboard</h2><div data-contact-leaderboard>Loading…</div></section>`,
-  afterRender: async () => {
-    const current = await gameService.getCurrentLeague();
-    const crewTarget = document.querySelector('[data-crew-leaderboard]');
-    crewTarget.innerHTML = current.squadId
-      ? leaderboardRows(await gameService.getCrewLeaderboard(current.squadId))
-      : '<p class="text-secondary">Join a crew to compare crew performance.</p>';
-    document.querySelector('[data-contact-leaderboard]').innerHTML = leaderboardRows(
-      await gameService.getContactLeaderboard(),
+function membershipForm(mode) {
+  const joining = mode === 'join';
+  return '<form class="ecocrew-crew-form" data-crew-form="' + mode + '"><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">' +
+    (joining ? 'JOIN A CREW' : 'CREATE A CREW') +
+    '</p><h2>' +
+    (joining ? 'Enter your invite code' : 'Name your new crew') +
+    '</h2></div><button class="btn btn-link" type="button" data-cancel-membership>Cancel</button></div><label>' +
+    (joining ? 'Invite code' : 'Crew name') +
+    '<input name="value" type="text" minlength="3" maxlength="40" required></label><p class="ecocrew-form-error" data-crew-error role="alert" hidden></p><button class="btn ecocrew-btn-primary" type="submit">' +
+    (joining ? 'Join crew' : 'Create crew') +
+    '</button></form>';
+}
+
+function inviteMenu() {
+  return '<details class="ecocrew-invite-menu"><summary class="btn ecocrew-btn-secondary">Invite <i class="bi bi-chevron-down" aria-hidden="true"></i></summary><div class="ecocrew-invite-menu__panel" aria-label="Share crew invite"><button type="button" data-share="x">X</button><button type="button" data-share="instagram">Instagram</button><button type="button" data-share="telegram">Telegram</button><button type="button" data-share="whatsapp">WhatsApp</button><p data-share-status role="status"></p></div></details>';
+}
+
+function emptyCrew() {
+  return '<section class="ecocrew-crew-section" aria-labelledby="your-crew-title"><div class="ecocrew-section-heading"><h2 id="your-crew-title">Your crew</h2></div><div class="ecocrew-crew-empty"><span aria-hidden="true"><i class="bi bi-people" aria-hidden="true"></i></span><strong>You have not joined a crew yet</strong><p>Crews make every good choice count toward a shared mission and streak.</p></div></section>';
+}
+
+function crewContent(overview) {
+  const membership = overview.membership;
+  const members = overview.members || [];
+  const mission = overview.mission || {};
+  const activity = overview.activity || [];
+  return '<section class="ecocrew-crew-section" aria-labelledby="your-crew-title"><div class="ecocrew-crew-title-row"><div><p class="ecocrew-kicker">YOUR CREW</p><h2 id="your-crew-title">' +
+    escapeHtml(membership.crewName) +
+    '</h2><small>' +
+    escapeHtml(membership.role === 'owner' ? 'You created this crew' : 'Crew member') +
+    '</small></div>' +
+    inviteMenu() +
+    '</div><div class="ecocrew-crew-hero"><div class="ecocrew-member-stack">' +
+    members
+      .map(
+        (member) =>
+          '<span class="ecocrew-avatar" title="' +
+          escapeHtml(member.name || member.displayName) +
+          '">' +
+          escapeHtml((member.name || member.displayName || '?').charAt(0).toUpperCase()) +
+          '</span>',
+      )
+      .join('') +
+    '</div><div><strong>' +
+    members.length +
+    ' member' +
+    (members.length === 1 ? '' : 's') +
+    ' · ' +
+    Number(overview.streak || 0) +
+    '-day streak 🔥</strong><p>' +
+    Number(overview.completedMembers || 0) +
+    ' of ' +
+    Number(overview.requiredMembers || Math.ceil(members.length / 2)) +
+    ' members completed today.</p></div></div></section>' +
+    '<section class="ecocrew-card ecocrew-mission-card"><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">WEEKLY MISSION</p><h2>' +
+    escapeHtml(mission.title || 'Crew mission') +
+    '</h2></div><span>' +
+    escapeHtml(mission.endsLabel || '') +
+    '</span></div>' +
+    progressBar(mission.progress, mission.target, 'Mission progress') +
+    '<div class="ecocrew-mission-card__footer"><strong>' +
+    Number(mission.progress || 0) +
+    ' / ' +
+    Number(mission.target || 0) +
+    ' points</strong><button class="btn btn-link" type="button" data-action="league">League board</button></div></section>' +
+    '<section class="ecocrew-feed"><div class="ecocrew-section-heading"><h2>Crew activity</h2><span>Celebrate milestones</span></div>' +
+    (activity.length
+      ? activity
+          .map(
+            (entry) =>
+              '<article class="ecocrew-feed-item"><span class="ecocrew-feed-item__emoji" aria-hidden="true">' +
+              escapeHtml(entry.emoji || '✨') +
+              '</span><div><p><strong>' +
+              escapeHtml(entry.actor || entry.actorName || 'A crewmate') +
+              '</strong> ' +
+              escapeHtml(entry.action || 'made progress') +
+              '</p><small>' +
+              escapeHtml(entry.time || 'Recently') +
+              '</small><button class="btn btn-sm" type="button" data-reaction="' +
+              escapeHtml(entry.id || entry.activityId) +
+              '">👏 ' +
+              Number(entry.reactions || 0) +
+              '</button></div></article>',
+          )
+          .join('')
+      : '<p class="ecocrew-muted">Your crew activity will appear here after the first post.</p>') +
+    '</section>';
+}
+
+async function copyInvite(link, status) {
+  try {
+    await window.navigator.clipboard.writeText(link);
+    status.textContent = 'Invite link copied.';
+  } catch {
+    status.textContent = link;
+  }
+}
+
+export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
+  const page = appShell(
+    'Crew hub',
+    'Crews',
+    '<div data-crew-content><p class="ecocrew-muted">Loading your crew…</p></div>',
+    'Join or create a crew, follow its shared streak and weekly mission, react to activity, and invite people you know.',
+  );
+  const content = page.querySelector('[data-crew-content]');
+
+  async function loadCrew() {
+    try {
+      const overview = await ecoCrewService.getCrewOverview();
+      content.innerHTML = overview.membership ? crewContent(overview) : membershipActions() + emptyCrew();
+      bindCrewActions(overview);
+    } catch (exception) {
+      content.innerHTML = '<p class="ecocrew-form-error" role="alert">' + escapeHtml(exception.message || 'Crew data is unavailable.') + '</p>' + membershipActions();
+      bindCrewActions({ membership: null });
+    }
+  }
+
+  function bindCrewActions(overview) {
+    page.querySelectorAll('[data-membership-action]').forEach((button) =>
+      button.addEventListener('click', () => {
+        content.innerHTML = membershipForm(button.dataset.membershipAction);
+        const form = content.querySelector('[data-crew-form]');
+        const input = form.querySelector('input');
+        form.querySelector('[data-cancel-membership]').addEventListener('click', loadCrew);
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!form.reportValidity()) return;
+          const submit = form.querySelector('[type="submit"]');
+          const error = form.querySelector('[data-crew-error]');
+          submit.disabled = true;
+          try {
+            const value = new FormData(form).get('value');
+            if (form.dataset.crewForm === 'join') await ecoCrewService.joinCrew(value);
+            else await ecoCrewService.createCrew(value);
+            await loadCrew();
+          } catch (exception) {
+            error.textContent = exception.message || 'We could not update your crew.';
+            error.hidden = false;
+            submit.disabled = false;
+          }
+        });
+        input.focus();
+      }),
     );
-    document.querySelectorAll('[data-contact-provider]').forEach((button) => {
+
+    page.querySelector('[data-action="league"]')?.addEventListener('click', () => navigate('/league'));
+    page.querySelectorAll('[data-reaction]').forEach((button) =>
       button.addEventListener('click', async () => {
-        try {
-          await gameService.startContactSync(button.dataset.contactProvider);
-        } catch (exception) {
-          announce(exception.message || 'Contact sync could not be started.', 'error');
+        button.disabled = true;
+        await ecoCrewService.reactActivity(button.dataset.reaction);
+        button.textContent = '👏 ' + (Number(button.textContent.match(/\d+/)?.[0] || 0) + 1);
+      }),
+    );
+    const menu = page.querySelector('.ecocrew-invite-menu');
+    if (!menu || !overview.membership) return;
+    const status = menu.querySelector('[data-share-status]');
+    menu.querySelectorAll('[data-share]').forEach((button) =>
+      button.addEventListener('click', async () => {
+        const invite = await ecoCrewService.createInvite(overview.membership);
+        const link = invite.inviteUrl || window.location.origin + window.location.pathname + '#join/' + encodeURIComponent(invite.inviteCode);
+        const message = 'Join my EcoCrew, ' + overview.membership.crewName + '!';
+        if (button.dataset.share === 'instagram') {
+          await copyInvite(link, status);
+          status.textContent = 'Link copied — paste it into Instagram.';
+        } else {
+          const urls = {
+            x: 'https://x.com/intent/post?text=' + encodeURIComponent(message) + '&url=' + encodeURIComponent(link),
+            telegram: 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(message),
+            whatsapp: 'https://wa.me/?text=' + encodeURIComponent(message + ' ' + link),
+          };
+          window.open(urls[button.dataset.share], '_blank', 'noopener,noreferrer');
+          status.textContent = 'Opening ' + button.textContent.trim() + '…';
+          menu.open = false;
         }
-      });
-    });
-  },
-});
+      }),
+    );
+  }
+
+  return { element: page, title: 'Crew hub', afterRender: loadCrew };
+}

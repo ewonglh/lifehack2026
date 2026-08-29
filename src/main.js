@@ -2,20 +2,22 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './styles/main.scss';
 import { createRouter } from './app/router.js';
 import { session } from './app/session.js';
-import { announce } from './lib/dom.js';
+import { announce, escapeHtml } from './lib/dom.js';
 import { validateEnvironment } from './config/env.js';
 import { authService } from './services/auth-service.js';
 import { publicLayout } from './layouts/public-layout.js';
 import { resetMockState } from './services/mock-store.js';
 
-function renderStartupError(error) {
-  root.innerHTML = publicLayout(
-    `<section class="py-5 text-center"><div class="alert alert-danger text-start" role="alert"><h1 class="h4">EcoCrew could not start.</h1><p>${error.message || 'The session could not be restored.'}</p><div class="d-flex gap-2"><button class="btn btn-primary" type="button" data-retry-session>Try again</button><a class="btn btn-outline-secondary" href="#/auth">Continue to sign in</a></div></div></section>`,
-  );
-}
-
 const root = document.querySelector('#app');
 const router = createRouter({ root, session });
+
+function renderStartupError(error) {
+  root.innerHTML = publicLayout(
+    '<section class=\"ecocrew-public-message\" role=\"alert\"><p class=\"ecocrew-kicker\">STARTUP</p><h1>EcoCrew could not start.</h1><p>' +
+      escapeHtml(error.message || 'The session could not be restored.') +
+      '</p><div class=\"ecocrew-actions\"><button class=\"btn ecocrew-btn-primary\" type=\"button\" data-retry-session>Try again</button><a class=\"btn ecocrew-btn-secondary\" href=\"#/auth\">Continue to sign in</a></div></section>',
+  );
+}
 
 document.addEventListener('click', async (event) => {
   const retry = event.target.closest('[data-retry-session]');
@@ -57,7 +59,6 @@ if (!environment.valid) {
   renderStartupError(
     new Error('Add Supabase credentials, or enable VITE_USE_MOCK_DATA during development.'),
   );
-  // Keep the invalid production configuration on its visible recovery screen.
 } else {
   try {
     await session.restore();

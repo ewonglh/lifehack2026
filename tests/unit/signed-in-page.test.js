@@ -8,6 +8,7 @@ describe('signed-in page', () => {
     const page = signedInPage({ session, profile: null, profileError: null });
     expect(page.content).toContain('Complete your profile');
     expect(page.content).toContain('data-sign-out');
+    expect(page.content).toContain('ecocrew-page--standalone');
   });
 
   it('offers the dashboard and profile recovery guidance', () => {

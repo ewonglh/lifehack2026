@@ -13,8 +13,8 @@ describe('route guard', () => {
     expect(guardPath('/friends', 'private', incomplete)).toBe('/onboarding'));
   it('keeps complete users out of onboarding', () =>
     expect(guardPath('/onboarding', 'onboarding', complete)).toBe('/dashboard'));
-  it('keeps a public landing page available to anonymous users', () =>
-    expect(guardPath('/', 'public', anonymous)).toBeNull());
+  it('redirects anonymous users from the main route to sign in', () =>
+    expect(guardPath('/', 'public', anonymous)).toBe('/auth'));
 });
 
 describe('competition routes', () => {
@@ -28,6 +28,18 @@ describe('competition routes', () => {
   it('extracts a submission id from a result route', () => {
     const match = resolveRoute('/result/submission-42');
     expect(match.params).toEqual({ submissionId: 'submission-42' });
+    expect(match.route.layout).toBe('app');
+  });
+
+  it('redirects the root route without rendering a landing page', () => {
+    const root = routes.find((route) => route.path === '/');
+    expect(root).toMatchObject({ redirectTo: '/auth', access: 'public', layout: 'standalone' });
+    expect(root.page).toBeUndefined();
+  });
+
+  it('uses the standalone layout for onboarding and the app layout for settings', () => {
+    expect(routes.find((route) => route.path === '/onboarding')?.layout).toBe('standalone');
+    expect(routes.find((route) => route.path === '/settings')?.layout).toBe('app');
   });
 
   it('falls back for unknown routes', () => {

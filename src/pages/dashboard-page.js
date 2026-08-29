@@ -1,29 +1,123 @@
-import { escapeHtml } from '../lib/dom.js';
-import { gameService } from '../services/game-service.js';
+import { ecoCrewService } from '../services/ecocrew-service.js';
+import {
+  appShell,
+  navigate as defaultNavigate,
+  progressBar,
+} from '../features/ecocrew/page-utils.js';
 
-export const dashboardPage = ({ profile }) => ({
-  title: 'Your EcoCrew',
-  content: `<div class="page-intro mb-4"><p class="text-success fw-semibold mb-1">Welcome back</p><h1 class="display-6 fw-bold">Hi, ${escapeHtml(profile.display_name)}.</h1><p class="text-secondary">Complete your daily task and help your crew climb the league.</p></div><section class="surface-card card mb-4"><div class="card-body p-4"><div class="d-flex justify-content-between align-items-start gap-3"><div><p class="text-success fw-semibold mb-1">Today’s task</p><h2 class="h4" data-task-prompt>Loading task…</h2><p class="text-secondary mb-0" data-task-meta></p></div><a class="btn btn-primary" href="#/sort">Start task</a></div></div></section><section class="row g-3"><div class="col-md-6"><article class="surface-card card h-100"><div class="card-body"><h2 class="h5">Crew and streak</h2><p class="mb-0" data-crew-status>Loading crew status…</p></div></article></div><div class="col-md-6"><article class="surface-card card h-100"><div class="card-body"><h2 class="h5">League</h2><p class="mb-0" data-league-status>Loading league status…</p></div></article></div></section>`,
-  afterRender: async () => {
-    const [task, current] = await Promise.all([
-      gameService.getDailyTask(),
-      gameService.getCurrentLeague(),
-    ]);
-    document.querySelector('[data-task-prompt]').textContent =
-      task?.prompt ?? 'No task is available today.';
-    document.querySelector('[data-task-meta]').textContent = task?.targetMaterial
-      ? `Target: ${task.targetMaterial} ${task.targetObject}`
-      : 'Complete one valid task today.';
-    document.querySelector('[data-crew-status]').textContent = current.squadId
-      ? current.crewStreak
-        ? `Today: ${current.crewStreak.completed_members}/${current.crewStreak.total_members} completed; ${current.crewStreak.required_members} needed for the crew streak.`
-        : 'You are participating with your crew.'
-      : 'You are working independently. Join a crew to earn league XP.';
-    const league = current.league?.leagues;
-    document.querySelector('[data-league-status]').textContent = current.queue
-      ? 'Your crew is queued for the next league.'
-      : league?.status === 'active'
-        ? `${league.name} is active.`
-        : 'Your crew is not currently in a league.';
-  },
-});
+function profileName(profile) {
+  return profile?.displayName || profile?.display_name || 'there';
+}
+
+function setText(page, selector, value) {
+  const target = page.querySelector(selector);
+  if (target) target.textContent = value;
+}
+
+export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}) {
+  const name = profileName(profile);
+  const page = appShell(
+    'Make today count.',
+    name === 'there' ? 'Your daily check-in' : 'Welcome back, ' + name,
+    '<section class="ecocrew-hero-card">' +
+      '<div><p class="ecocrew-kicker">TODAY’S POST</p><h2 data-dashboard-task>Loading today’s task…</h2><p data-dashboard-task-meta>One verified choice helps your crew.</p></div>' +
+      '<span class="ecocrew-hero-card__art" aria-hidden="true">♻</span>' +
+      '<button class="btn ecocrew-btn-primary" type="button" data-action="sort">Create today’s post</button>' +
+      '</section>' +
+      '<section class="ecocrew-stat-grid" aria-label="Your progress">' +
+      '<article><span>Today</span><strong data-dashboard-today>—</strong><small>points earned</small></article>' +
+      '<article><span>Crew streak</span><strong data-dashboard-streak>—</strong><small>days together</small></article>' +
+      '<article><span>Weekly points</span><strong data-dashboard-weekly>—</strong><small data-dashboard-weekly-label>this league week</small></article>' +
+      '</section>' +
+      '<section class="ecocrew-card ecocrew-mission-card">' +
+      '<div class="ecocrew-card__top"><div><p class="ecocrew-kicker">WEEKLY MISSION</p><h2 data-dashboard-mission>Loading mission…</h2></div><span data-dashboard-mission-end></span></div>' +
+      '<div data-dashboard-progress></div>' +
+      '<div class="ecocrew-mission-card__footer"><strong data-dashboard-mission-count>—</strong><button class="btn btn-link" type="button" data-action="crew">View crew</button></div>' +
+      '</section>' +
+      '<section class="ecocrew-next-unlock"><span aria-hidden="true">🍄</span><div><p class="ecocrew-kicker">NEXT UNLOCK</p><strong>Keep contributing</strong><small>Cosmetics appear as your crew progresses.</small></div></section>',
+    'See your assigned daily task, personal points, crew progress, and the next action for your EcoCrew.',
+  );
+
+  page.querySelector('[data-action="sort"]')?.addEventListener('click', (event) => {
+    navigate(event.currentTarget.dataset.destination || '/sort');
+  });
+  page.querySelector('[data-action="crew"]')?.addEventListener('click', () => navigate('/crew'));
+
+  return {
+    element: page,
+    title: 'Dashboard',
+    afterRender: async () => {
+      try {
+        const data = await ecoCrewService.getDashboardData();
+        const task = data.task;
+        const crew = data.crew || {};
+        const mission = crew.mission;
+        const dailyPoints = Number(data.dailyPoints ?? data.todayPoints ?? 0);
+        const hasCrew = Boolean(crew.membership);
+        const weeklyPoints = hasCrew
+          ? Number(data.weeklyPoints ?? crew.weeklyPoints ?? data.league?.weeklyPoints ?? 0)
+          : null;
+        const button = page.querySelector('[data-action="sort"]');
+
+        setText(page, '[data-dashboard-task]', task?.prompt || 'No task is available today.');
+        setText(
+          page,
+          '[data-dashboard-task-meta]',
+          task?.targetMaterial
+            ? 'Target: ' + task.targetMaterial + ' ' + (task.targetObject || 'item')
+            : 'Complete one valid task today.',
+        );
+        setText(page, '[data-dashboard-today]', String(dailyPoints));
+        setText(
+          page,
+          '[data-dashboard-weekly]',
+          weeklyPoints === null ? '—' : String(weeklyPoints),
+        );
+        setText(
+          page,
+          '[data-dashboard-weekly-label]',
+          hasCrew ? 'this league week' : 'join a crew to track this',
+        );
+        setText(page, '[data-dashboard-streak]', crew.streak ? String(crew.streak) + ' 🔥' : '—');
+        setText(page, '[data-dashboard-mission]', mission?.title || 'Crew mission');
+        setText(page, '[data-dashboard-mission-end]', mission?.endsLabel || '');
+        setText(
+          page,
+          '[data-dashboard-mission-count]',
+          mission
+            ? String(mission.progress || 0) + ' / ' + String(mission.target || 0) + ' points'
+            : 'Join a crew to contribute',
+        );
+        const progressTarget = page.querySelector('[data-dashboard-progress]');
+        if (progressTarget) {
+          progressTarget.innerHTML = mission
+            ? progressBar(mission.progress, mission.target, 'Weekly mission progress')
+            : '<p class="ecocrew-muted">Join a crew to unlock shared progress.</p>';
+        }
+        if (button) {
+          if (data.todaySubmitted) {
+            button.textContent = 'View today’s result';
+            button.dataset.destination =
+              '/result/' + encodeURIComponent(data.todaySubmissionId || 'latest');
+            setText(page, '[data-dashboard-task-meta]', 'Today’s challenge is complete.');
+          } else {
+            button.textContent = crew.membership ? 'Create today’s post' : 'Create a post';
+            button.dataset.destination = '/sort';
+          }
+        }
+      } catch (exception) {
+        setText(page, '[data-dashboard-task]', 'Your task is temporarily unavailable.');
+        setText(page, '[data-dashboard-task-meta]', exception.message || 'Try again in a moment.');
+      }
+    },
+  };
+}
+
+export const dashboardPage = ({ profile } = {}) => {
+  const rendered = renderDashboardPage({ profile });
+  return {
+    title: rendered.title,
+    content: rendered.element.outerHTML,
+    afterRender: rendered.afterRender,
+  };
+};

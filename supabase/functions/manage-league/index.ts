@@ -59,13 +59,20 @@ Deno.serve(async (request: Request) => {
     }
     if (action === 'current') {
       if (!squadId) return jsonResponse({ squadId: null, queue: null, league: null });
-      const [{ data: queue }, { data: entry }, { data: progression }, { data: crewStreak }] = await Promise.all([
+      const [
+        { data: queue },
+        { data: entry },
+        { data: progression },
+        { data: crewStreak },
+        { data: squadStreak },
+      ] = await Promise.all([
         context.admin.from('league_queue').select('*').eq('squad_id', squadId).eq('status', 'queued').maybeSingle(),
         context.admin.from('league_entries').select('league_id, score, final_rank, streak_days, streak_multiplier, leagues(*)').eq('squad_id', squadId).order('league_id', { ascending: false }).limit(1).maybeSingle(),
         context.admin.from('crew_progression').select('*').eq('squad_id', squadId).maybeSingle(),
         context.admin.from('crew_daily_streaks').select('streak_day, total_members, completed_members, required_members, qualified').eq('squad_id', squadId).order('streak_day', { ascending: false }).limit(1).maybeSingle(),
+        context.admin.from('squad_streaks').select('current_streak, repair_tokens, last_completed_day').eq('squad_id', squadId).maybeSingle(),
       ]);
-      return jsonResponse({ squadId, queue, league: entry, progression, crewStreak });
+      return jsonResponse({ squadId, queue, league: entry, progression, crewStreak, squadStreak });
     }
     throw new ApiError(400, 'INVALID_REQUEST', 'Unsupported league action.');
   } catch (error) {

@@ -1,31 +1,83 @@
-export function appShell(title, eyebrow, content) {
+export function appShell(title, eyebrow, content, info = 'A quick EcoCrew screen for making one small choice together.') {
   const page = document.createElement('main');
   page.className = 'ecocrew-page';
-  page.innerHTML = `
-    <header class="ecocrew-page__header">
-      <div class="ecocrew-wordmark"><span aria-hidden="true">✦</span> EcoCrew</div>
-      <div class="ecocrew-avatar" aria-label="Your profile">I</div>
-    </header>
-    <section class="ecocrew-page__intro">
-      <p class="ecocrew-eyebrow">${eyebrow}</p>
-      <h1>${title}</h1>
-    </section>
-    ${content}
-  `;
+  page.tabIndex = -1;
+  page.dataset.pageTitle = title;
+  page.innerHTML =
+    '<header class=\"ecocrew-page__header\">' +
+    '<div class=\"ecocrew-wordmark\"><span aria-hidden=\"true\">✦</span> EcoCrew</div>' +
+    '<div class=\"ecocrew-header-actions\">' +
+    '<details class=\"ecocrew-page-info\"><summary aria-label=\"About this page\"><i class=\"bi bi-info-lg\" aria-hidden=\"true\"></i></summary><div class=\"ecocrew-page-info__panel\"><strong>' +
+    escapeHtml(title) +
+    '</strong><p>' +
+    escapeHtml(info) +
+    '</p></div></details>' +
+    '<a class=\"ecocrew-avatar\" href=\"#/profile\" aria-label=\"Your profile\">I</a>' +
+    '</div></header>' +
+    '<section class=\"ecocrew-page__intro\"><p class=\"ecocrew-eyebrow\">' +
+    escapeHtml(eyebrow) +
+    '</p><h1>' +
+    escapeHtml(title) +
+    '</h1></section>' +
+    content;
+  return page;
+}
+
+export function standaloneShell(
+  title,
+  eyebrow,
+  content,
+  info = 'A quick EcoCrew screen for making one small choice together.',
+) {
+  const page = document.createElement('main');
+  page.className = 'ecocrew-page ecocrew-page--standalone';
+  page.tabIndex = -1;
+  page.dataset.pageTitle = title;
+  page.innerHTML =
+    '<header class="ecocrew-page__header">' +
+    '<a class="ecocrew-wordmark" href="#/auth"><span aria-hidden="true">✦</span> EcoCrew</a>' +
+    '<details class="ecocrew-page-info"><summary aria-label="About this page"><i class="bi bi-info-lg" aria-hidden="true"></i></summary><div class="ecocrew-page-info__panel"><strong>' +
+    escapeHtml(title) +
+    '</strong><p>' +
+    escapeHtml(info) +
+    '</p></div></details></header>' +
+    '<section class="ecocrew-page__intro"><p class="ecocrew-eyebrow">' +
+    escapeHtml(eyebrow) +
+    '</p><h1>' +
+    escapeHtml(title) +
+    '</h1></section>' +
+    content;
   return page;
 }
 
 export function navigate(path) {
-  window.location.hash = path;
+  const target = '#' + path;
+  if (window.location.hash === target) {
+    window.dispatchEvent(new window.Event('hashchange'));
+    return;
+  }
+  window.location.hash = target;
 }
 
 export function progressBar(value, total, label) {
-  const percent = Math.min(100, Math.round((value / total) * 100));
-  return `<div class="ecocrew-progress" role="progressbar" aria-label="${label}" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${value}"><span style="width:${percent}%"></span></div>`;
+  const safeTotal = Math.max(1, Number(total) || 1);
+  const safeValue = Math.max(0, Math.min(safeTotal, Number(value) || 0));
+  const percent = Math.min(100, Math.round((safeValue / safeTotal) * 100));
+  return (
+    '<div class=\"ecocrew-progress\" role=\"progressbar\" aria-label=\"' +
+    escapeHtml(label) +
+    '\" aria-valuemin=\"0\" aria-valuemax=\"' +
+    safeTotal +
+    '\" aria-valuenow=\"' +
+    safeValue +
+    '\"><span style=\"width:' +
+    percent +
+    '%\"></span></div>'
+  );
 }
 
-export function escapeHtml(value) {
+export function escapeHtml(value = '') {
   const element = document.createElement('span');
-  element.textContent = value;
+  element.textContent = String(value ?? '');
   return element.innerHTML;
 }

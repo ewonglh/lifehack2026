@@ -5,6 +5,7 @@ describe('auth page', () => {
   it('renders the authentication form and OAuth action', () => {
     const page = authPage();
     expect(page.content).toContain('data-auth-form');
-    expect(page.content).toContain('data-oauth="google"');
+    expect(page.content).toContain('data-social-login');
+    expect(page.content).toContain('ecocrew-auth-page');
   });
 });

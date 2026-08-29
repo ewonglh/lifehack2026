@@ -7,7 +7,7 @@ export const bins = [
   },
   { id: 'compost', label: 'Compost', icon: '♧', description: 'Food scraps and garden waste.' },
   {
-    id: 'reuse',
+    id: 'reuse_return',
     label: 'Return / reuse',
     icon: '↻',
     description: 'Items with a refill, return, or reuse path.',
@@ -20,37 +20,54 @@ export const bins = [
   },
 ];
 
+export const demoTask = {
+  taskId: 'recycle-plastic-bottle',
+  taskDay: 'demo-day',
+  timezone: 'Asia/Singapore',
+  prompt: 'Recycle a plastic drink bottle',
+  targetObject: 'bottle',
+  targetMaterial: 'plastic',
+  targetAction: 'recycle',
+  validationMetadata: { aliases: ['PET bottle', 'water bottle'] },
+};
+
 export const demoScan = {
-  id: 'demo-bottle-01',
   itemName: 'Plastic drink bottle',
   material: 'PET plastic',
   recommendedBin: 'recycle',
   preparationTip: 'Empty and rinse the bottle, then replace the cap before recycling.',
   confidence: 0.86,
-  reason: 'The bottle shape and label match a PET beverage bottle.',
+  localeRuleVersion: 'sg-demo-v1',
+  explanation: 'The bottle shape and label match a PET beverage bottle.',
+  matchesTask: true,
+  taskConfidence: 0.95,
+  taskReason: 'The demo image matches the assigned bottle task.',
 };
 
 export const crew = {
+  id: 'demo-glass-guardians',
   name: 'Glass Guardians',
   members: [
-    { name: 'Irfan', initials: 'I', tone: 'moss' },
-    { name: 'Maya', initials: 'M', tone: 'coral' },
-    { name: 'Noah', initials: 'N', tone: 'sky' },
+    { id: 'demo-irfan', name: 'Irfan', initials: 'I', tone: 'moss' },
+    { id: 'demo-maya', name: 'Maya', initials: 'M', tone: 'coral' },
+    { id: 'demo-noah', name: 'Noah', initials: 'N', tone: 'sky' },
+    { id: 'demo-ari', name: 'Ari', initials: 'A', tone: 'sun' },
   ],
   mission: {
+    id: 'demo-landfill-monster',
     title: 'Defeat the Landfill Monster',
     progress: 64,
     target: 100,
     endsLabel: '3 days left',
   },
-  league: { name: 'Sprout League', rank: 4, total: 12 },
   streak: 4,
   repairTokens: 1,
+  weeklyPoints: 745,
 };
 
 export const activity = [
   {
-    id: 'maya',
+    id: 'demo-activity-maya',
     actor: 'Maya',
     action: 'sorted a glass pasta jar correctly',
     time: '18 min ago',
@@ -58,7 +75,7 @@ export const activity = [
     emoji: '✨',
   },
   {
-    id: 'noah',
+    id: 'demo-activity-noah',
     actor: 'Noah',
     action: 'helped protect the crew streak',
     time: '2 hr ago',
@@ -66,7 +83,7 @@ export const activity = [
     emoji: '🔥',
   },
   {
-    id: 'irfan',
+    id: 'demo-activity-irfan',
     actor: 'Irfan',
     action: 'unlocked the Leaf Frame',
     time: 'Yesterday',
@@ -84,13 +101,19 @@ export const leagueRows = [
 ];
 
 export const cosmetics = [
-  { id: 'leaf-frame', name: 'Leaf Frame', icon: '🌿', unlocked: true, equipped: true },
-  { id: 'sunny-badge', name: 'Sunny Badge', icon: '☀️', unlocked: true, equipped: false },
-  {
-    id: 'mushroom-frame',
-    name: 'Mushroom Frame',
-    icon: '🍄',
-    unlocked: false,
-    progress: '2 more correct sorts',
-  },
+  { id: 'leaf-frame', name: 'Leaf Frame', kind: 'frame', icon: '🌿', unlocked: true, equipped: true },
+  { id: 'sprout-badge', name: 'Sprout Badge', kind: 'badge', icon: '🌱', unlocked: true, equipped: false },
+  { id: 'mushroom-frame', name: 'Mushroom Frame', kind: 'frame', icon: '🍄', unlocked: false, progress: '2 more correct sorts' },
 ];
+
+export const profile = {
+  id: 'mock-user',
+  displayName: 'Irfan',
+  handle: '@irfan.eco',
+  age: null,
+  about: '',
+  location: 'Singapore',
+  avatarId: null,
+  frameId: 'leaf-frame',
+  joinedLabel: 'EcoCrew member since August 2026',
+};
