@@ -78,3 +78,85 @@
 @keyframes ecocrew-loading { from { transform: translateX(0); } to { transform: translateX(122%); } }
 
 @media (prefers-reduced-motion: reduce) { .ecocrew-loading-bar::after { animation: none; } }
+
+.ecocrew-task-prompt {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 1rem;
+  background: #dceee0;
+}
+
+.ecocrew-result-breakdown details {
+  margin: 1rem 0;
+}
+
+.ecocrew-result-breakdown summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.ecocrew-result-breakdown details p {
+  margin: .5rem 0 0;
+  color: #536862;
+}
+
+.ecocrew-task-prompt h2,
+.ecocrew-task-prompt p {
+  margin-bottom: .25rem;
+}
+
+.ecocrew-task-prompt h2 {
+  font-size: clamp(1.35rem, 5vw, 1.8rem);
+}
+
+.ecocrew-task-prompt p:last-child {
+  color: #536862;
+}
+
+.ecocrew-crew-title-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.ecocrew-profile-items button {
+  display: grid;
+  width: 3.25rem;
+  height: 3.25rem;
+  place-items: center;
+  padding: 0;
+  border: 2px solid #b7c9bd;
+  border-radius: .9rem;
+  background: #f7f4ea;
+  color: var(--eco-ink);
+  font-size: 1.5rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ecocrew-profile-items button:hover,
+.ecocrew-profile-items button:focus-visible {
+  border-color: var(--eco-ink);
+  outline: 3px solid #92bfdb;
+  outline-offset: 2px;
+}
+
+.ecocrew-profile-items button.is-equipped {
+  border-color: var(--eco-ink);
+  background: var(--eco-lime);
+}
+
+@media (width <= 390px) {
+  .ecocrew-task-prompt {
+    padding: .85rem;
+  }
+
+  .ecocrew-crew-title-actions {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
+  .ecocrew-profile-items {
+    flex-wrap: wrap;
+  }
+}

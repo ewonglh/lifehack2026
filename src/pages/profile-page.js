@@ -1,5 +1,9 @@
 import { ecoCrewService } from '../services/ecocrew-service.js';
-import { appShell, escapeHtml, navigate as defaultNavigate } from '../features/ecocrew/page-utils.js';
+import {
+  appShell,
+  escapeHtml,
+  navigate as defaultNavigate,
+} from '../features/ecocrew/page-utils.js';
 
 function postTime(dateString) {
   const timestamp = new Date(dateString || Date.now()).getTime();
@@ -11,9 +15,11 @@ function profileContent(data) {
   const profile = data.profile || {};
   const posts = data.posts || [];
   const cosmetics = data.cosmetics || [];
-  const equipped = cosmetics.find((item) => item.equipped) || cosmetics.find((item) => item.unlocked) || { name: 'EcoCrew look', icon: '🌱' };
+  const equipped = cosmetics.find((item) => item.equipped) ||
+    cosmetics.find((item) => item.unlocked) || { name: 'EcoCrew look', icon: '🌱' };
   const name = profile.displayName || 'EcoCrew member';
-  return '<div data-profile-content><section class="ecocrew-profile-hero"><div class="ecocrew-profile-avatar" aria-label="' +
+  return (
+    '<div data-profile-content><section class="ecocrew-profile-hero"><div class="ecocrew-profile-avatar" aria-label="' +
     escapeHtml(name) +
     '\'s profile avatar">' +
     escapeHtml(name.charAt(0).toUpperCase()) +
@@ -49,15 +55,19 @@ function profileContent(data) {
       .filter((item) => item.unlocked)
       .map(
         (item) =>
-          '<span title="' +
+          '<button type="button" data-equip-cosmetic="' +
+          escapeHtml(item.id) +
+          '" title="' +
           escapeHtml(item.name) +
           '" class="' +
           (item.equipped ? 'is-equipped' : '') +
-          '" aria-label="' +
+          '" aria-label="Equip ' +
           escapeHtml(item.name + (item.equipped ? ', equipped' : '')) +
+          '" aria-pressed="' +
+          (item.equipped ? 'true' : 'false') +
           '">' +
           escapeHtml(item.icon || '✦') +
-          '</span>',
+          '</button>',
       )
       .join('') +
     '</div></section>' +
@@ -84,17 +94,20 @@ function profileContent(data) {
           )
           .join('')
       : '<div class="ecocrew-posts-empty"><span aria-hidden="true">📷</span><strong>No posts yet</strong><p>Share your first recycling win with your crew.</p><button class="btn ecocrew-btn-primary" type="button" data-create-post>Create a post</button></div>') +
-    '</section><section class="ecocrew-profile-actions" aria-label="Profile actions"><button type="button" data-settings><i class="bi bi-gear" aria-hidden="true"></i> Settings <i class="bi bi-chevron-right" aria-hidden="true"></i></button><button type="button" data-privacy><i class="bi bi-shield-check" aria-hidden="true"></i> Privacy & photo controls <i class="bi bi-chevron-right" aria-hidden="true"></i></button><button type="button" data-logout><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Log out <i class="bi bi-chevron-right" aria-hidden="true"></i></button></section></div>';
+    '</section><section class="ecocrew-profile-actions" aria-label="Profile actions"><button type="button" data-settings><i class="bi bi-gear" aria-hidden="true"></i> Settings <i class="bi bi-chevron-right" aria-hidden="true"></i></button><button type="button" data-privacy><i class="bi bi-shield-check" aria-hidden="true"></i> Privacy & photo controls <i class="bi bi-chevron-right" aria-hidden="true"></i></button><button type="button" data-logout><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Log out <i class="bi bi-chevron-right" aria-hidden="true"></i></button></section></div>'
+  );
 }
 
 function editForm(profile) {
-  return '<form class="ecocrew-edit-form"><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">EDIT PROFILE</p><h2>Make it yours</h2></div><button class="btn btn-link" type="button" data-cancel>Cancel</button></div><label>Name<input name="displayName" value="' +
+  return (
+    '<form class="ecocrew-edit-form"><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">EDIT PROFILE</p><h2>Make it yours</h2></div><button class="btn btn-link" type="button" data-cancel>Cancel</button></div><label>Name<input name="displayName" value="' +
     escapeHtml(profile.displayName || '') +
     '" required maxlength="40"></label><label>Handle<input name="handle" value="' +
     escapeHtml(profile.handle || '') +
     '" maxlength="30"></label><label>About myself<textarea name="about" rows="4" maxlength="280">' +
     escapeHtml(profile.about || '') +
-    '</textarea><p class="ecocrew-form-error" data-profile-error role="alert" hidden></p><button class="btn ecocrew-btn-primary" type="submit">Save changes</button></form>';
+    '</textarea><p class="ecocrew-form-error" data-profile-error role="alert" hidden></p><button class="btn ecocrew-btn-primary" type="submit">Save changes</button></form>'
+  );
 }
 
 export function renderProfilePage({ session, sessionState, navigate = defaultNavigate } = {}) {
@@ -114,6 +127,21 @@ export function renderProfilePage({ session, sessionState, navigate = defaultNav
   }
 
   function bindProfileActions() {
+    page.querySelectorAll('[data-equip-cosmetic]').forEach((button) =>
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+          await ecoCrewService.equipCosmetic(button.dataset.equipCosmetic);
+          await loadProfile();
+        } catch (exception) {
+          button.disabled = false;
+          button.setAttribute(
+            'aria-label',
+            exception.message || 'Could not equip this cosmetic. Try again.',
+          );
+        }
+      }),
+    );
     page.querySelector('[data-edit]')?.addEventListener('click', () => {
       const target = page.querySelector('[data-profile-content]');
       target.innerHTML = editForm(latestData.profile);

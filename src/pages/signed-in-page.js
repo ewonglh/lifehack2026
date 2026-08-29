@@ -5,7 +5,13 @@ function displayName(profile, email) {
   return profile?.displayName || profile?.display_name || email || 'EcoCrew member';
 }
 
-export function renderSignedInPage({ session, rawSession, profile, profileError, navigate = defaultNavigate } = {}) {
+export function renderSignedInPage({
+  session,
+  rawSession,
+  profile,
+  profileError,
+  navigate = defaultNavigate,
+} = {}) {
   const currentSession = rawSession || (session?.user ? session : session?.get?.()?.session);
   const user = currentSession?.user;
   const email = user?.email || 'Authenticated user';

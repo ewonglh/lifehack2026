@@ -24,6 +24,7 @@ describe('completed daily challenge state', () => {
     getLastResult.mockReset();
     submitTask.mockReset();
     window.URL.createObjectURL = vi.fn().mockReturnValue('blob:demo');
+    window.URL.revokeObjectURL = vi.fn();
   });
 
   it('renders the challenge as read-only when today is already complete', async () => {
@@ -67,5 +68,61 @@ describe('completed daily challenge state', () => {
     expect(rendered.element.querySelector('[data-submit-result-link]').getAttribute('href')).toBe(
       '#/result/submission-2',
     );
+  });
+
+  it('validates image types and submits the selected bin with a task payload', async () => {
+    submitTask.mockResolvedValue({ submissionId: 'submission-3' });
+    const navigate = vi.fn();
+    const rendered = renderSubmitPage({ navigate });
+    await rendered.afterRender();
+    const photo = rendered.element.querySelector('#item-photo');
+
+    Object.defineProperty(photo, 'files', {
+      configurable: true,
+      value: [new globalThis.File(['not an image'], 'item.txt', { type: 'text/plain' })],
+    });
+    photo.dispatchEvent(new window.Event('change', { bubbles: true }));
+    expect(rendered.element.querySelector('[data-submit-error]').textContent).toContain('JPEG');
+    expect(rendered.element.querySelector('.ecocrew-choice-section').hidden).toBe(true);
+
+    Object.defineProperty(photo, 'files', {
+      configurable: true,
+      value: [new globalThis.File(['demo image'], 'item.png', { type: 'image/png' })],
+    });
+    photo.dispatchEvent(new window.Event('change', { bubbles: true }));
+    rendered.element.querySelector('[data-bin="recycle"]').click();
+
+    await vi.waitFor(() => expect(submitTask).toHaveBeenCalled());
+    expect(submitTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: task.taskId,
+        userSelectedBin: 'recycle',
+        locale: 'en-SG',
+        file: expect.any(globalThis.File),
+      }),
+    );
+    expect(submitTask.mock.calls[0][0].idempotencyKey).toMatch(/^web-/);
+    expect(navigate).toHaveBeenCalledWith('/result/submission-3');
+  });
+
+  it('renders a backend error and re-enables bin choices', async () => {
+    submitTask.mockRejectedValue(new Error('Server is unavailable.'));
+    const rendered = renderSubmitPage();
+    await rendered.afterRender();
+    const photo = rendered.element.querySelector('#item-photo');
+    Object.defineProperty(photo, 'files', {
+      configurable: true,
+      value: [new globalThis.File(['demo image'], 'item.png', { type: 'image/png' })],
+    });
+    photo.dispatchEvent(new window.Event('change', { bubbles: true }));
+    rendered.element.querySelector('[data-bin="recycle"]').click();
+
+    await vi.waitFor(() =>
+      expect(rendered.element.querySelector('[data-submit-error]').hidden).toBe(false),
+    );
+    expect(rendered.element.querySelector('[data-submit-error]').textContent).toContain(
+      'Server is unavailable.',
+    );
+    expect(rendered.element.querySelector('[data-bin="recycle"]').disabled).toBe(false);
   });
 });

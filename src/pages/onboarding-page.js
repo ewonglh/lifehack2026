@@ -3,7 +3,10 @@ import { announce, escapeHtml } from '../lib/dom.js';
 import { navigate as defaultNavigate, standaloneShell } from '../features/ecocrew/page-utils.js';
 
 function initials(value) {
-  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
+  const words = String(value || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   if (!words.length) return '?';
   return words
     .slice(0, 2)

@@ -1,20 +1,25 @@
-export function appShell(title, eyebrow, content, info = 'A quick EcoCrew screen for making one small choice together.') {
+export function appShell(
+  title,
+  eyebrow,
+  content,
+  info = 'A quick EcoCrew screen for making one small choice together.',
+) {
   const page = document.createElement('main');
   page.className = 'ecocrew-page';
   page.tabIndex = -1;
   page.dataset.pageTitle = title;
   page.innerHTML =
-    '<header class=\"ecocrew-page__header\">' +
-    '<div class=\"ecocrew-wordmark\"><span aria-hidden=\"true\">✦</span> EcoCrew</div>' +
-    '<div class=\"ecocrew-header-actions\">' +
-    '<details class=\"ecocrew-page-info\"><summary aria-label=\"About this page\"><i class=\"bi bi-info-lg\" aria-hidden=\"true\"></i></summary><div class=\"ecocrew-page-info__panel\"><strong>' +
+    '<header class="ecocrew-page__header">' +
+    '<div class="ecocrew-wordmark"><span aria-hidden="true">✦</span> EcoCrew</div>' +
+    '<div class="ecocrew-header-actions">' +
+    '<details class="ecocrew-page-info"><summary aria-label="About this page"><i class="bi bi-info-lg" aria-hidden="true"></i></summary><div class="ecocrew-page-info__panel"><strong>' +
     escapeHtml(title) +
     '</strong><p>' +
     escapeHtml(info) +
     '</p></div></details>' +
-    '<a class=\"ecocrew-avatar\" href=\"#/profile\" aria-label=\"Your profile\">I</a>' +
+    '<a class="ecocrew-avatar" href="#/profile" aria-label="Your profile">I</a>' +
     '</div></header>' +
-    '<section class=\"ecocrew-page__intro\"><p class=\"ecocrew-eyebrow\">' +
+    '<section class="ecocrew-page__intro"><p class="ecocrew-eyebrow">' +
     escapeHtml(eyebrow) +
     '</p><h1>' +
     escapeHtml(title) +
@@ -64,15 +69,15 @@ export function progressBar(value, total, label) {
   const safeValue = Math.max(0, Math.min(safeTotal, Number(value) || 0));
   const percent = Math.min(100, Math.round((safeValue / safeTotal) * 100));
   return (
-    '<div class=\"ecocrew-progress\" role=\"progressbar\" aria-label=\"' +
+    '<div class="ecocrew-progress" role="progressbar" aria-label="' +
     escapeHtml(label) +
-    '\" aria-valuemin=\"0\" aria-valuemax=\"' +
+    '" aria-valuemin="0" aria-valuemax="' +
     safeTotal +
-    '\" aria-valuenow=\"' +
+    '" aria-valuenow="' +
     safeValue +
-    '\"><span style=\"width:' +
+    '"><span style="width:' +
     percent +
-    '%\"></span></div>'
+    '%"></span></div>'
   );
 }
 

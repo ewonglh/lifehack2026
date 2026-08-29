@@ -1,5 +1,10 @@
 import { ecoCrewService } from '../services/ecocrew-service.js';
-import { appShell, escapeHtml, navigate as defaultNavigate, progressBar } from '../features/ecocrew/page-utils.js';
+import {
+  appShell,
+  escapeHtml,
+  navigate as defaultNavigate,
+  progressBar,
+} from '../features/ecocrew/page-utils.js';
 
 function membershipActions() {
   return '<section class="ecocrew-crew-actions" aria-labelledby="find-crew-title"><div><p class="ecocrew-kicker">PLAY TOGETHER</p><h2 id="find-crew-title">Find your people</h2><p>Join with an invite code or start a new crew.</p></div><div><button class="btn ecocrew-btn-secondary" type="button" data-membership-action="join">Join</button><button class="btn ecocrew-btn-primary" type="button" data-membership-action="create">Create</button></div></section>';
@@ -7,7 +12,10 @@ function membershipActions() {
 
 function membershipForm(mode) {
   const joining = mode === 'join';
-  return '<form class="ecocrew-crew-form" data-crew-form="' + mode + '"><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">' +
+  return (
+    '<form class="ecocrew-crew-form" data-crew-form="' +
+    mode +
+    '"><div class="ecocrew-card__top"><div><p class="ecocrew-kicker">' +
     (joining ? 'JOIN A CREW' : 'CREATE A CREW') +
     '</p><h2>' +
     (joining ? 'Enter your invite code' : 'Name your new crew') +
@@ -15,11 +23,12 @@ function membershipForm(mode) {
     (joining ? 'Invite code' : 'Crew name') +
     '<input name="value" type="text" minlength="3" maxlength="40" required></label><p class="ecocrew-form-error" data-crew-error role="alert" hidden></p><button class="btn ecocrew-btn-primary" type="submit">' +
     (joining ? 'Join crew' : 'Create crew') +
-    '</button></form>';
+    '</button></form>'
+  );
 }
 
 function inviteMenu() {
-  return '<details class="ecocrew-invite-menu"><summary class="btn ecocrew-btn-secondary">Invite <i class="bi bi-chevron-down" aria-hidden="true"></i></summary><div class="ecocrew-invite-menu__panel" aria-label="Share crew invite"><button type="button" data-share="x">X</button><button type="button" data-share="instagram">Instagram</button><button type="button" data-share="telegram">Telegram</button><button type="button" data-share="whatsapp">WhatsApp</button><p data-share-status role="status"></p></div></details>';
+  return '<details class="ecocrew-invite-menu"><summary class="btn ecocrew-btn-secondary"><i class="bi bi-share" aria-hidden="true"></i><span>Invite</span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary><div class="ecocrew-invite-menu__panel" aria-label="Share crew invite"><button type="button" data-share="x"><i class="bi bi-twitter-x" aria-hidden="true"></i><span>X</span></button><button type="button" data-share="instagram"><i class="bi bi-instagram" aria-hidden="true"></i><span>Instagram</span></button><button type="button" data-share="telegram"><i class="bi bi-telegram" aria-hidden="true"></i><span>Telegram</span></button><button type="button" data-share="whatsapp"><i class="bi bi-whatsapp" aria-hidden="true"></i><span>WhatsApp</span></button><p data-share-status role="status"></p></div></details>';
 }
 
 function emptyCrew() {
@@ -31,12 +40,18 @@ function crewContent(overview) {
   const members = overview.members || [];
   const mission = overview.mission || {};
   const activity = overview.activity || [];
-  return '<section class="ecocrew-crew-section" aria-labelledby="your-crew-title"><div class="ecocrew-crew-title-row"><div><p class="ecocrew-kicker">YOUR CREW</p><h2 id="your-crew-title">' +
+  return (
+    '<section class="ecocrew-crew-section" aria-labelledby="your-crew-title"><div class="ecocrew-crew-title-row"><div><p class="ecocrew-kicker">YOUR CREW</p><h2 id="your-crew-title">' +
     escapeHtml(membership.crewName) +
     '</h2><small>' +
     escapeHtml(membership.role === 'owner' ? 'You created this crew' : 'Crew member') +
     '</small></div>' +
+    '<div class="ecocrew-crew-title-actions">' +
+    (membership.role === 'member'
+      ? '<button class="btn ecocrew-delete-crew" type="button" data-leave-crew>Leave crew</button>'
+      : '') +
     inviteMenu() +
+    '</div>' +
     '</div><div class="ecocrew-crew-hero"><div class="ecocrew-member-stack">' +
     members
       .map(
@@ -91,7 +106,8 @@ function crewContent(overview) {
           )
           .join('')
       : '<p class="ecocrew-muted">Your crew activity will appear here after the first post.</p>') +
-    '</section>';
+    '</section><p class="ecocrew-form-error" data-crew-action-error role="alert" hidden></p>'
+  );
 }
 
 async function copyInvite(link, status) {
@@ -115,10 +131,16 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
   async function loadCrew() {
     try {
       const overview = await ecoCrewService.getCrewOverview();
-      content.innerHTML = overview.membership ? crewContent(overview) : membershipActions() + emptyCrew();
+      content.innerHTML = overview.membership
+        ? crewContent(overview)
+        : membershipActions() + emptyCrew();
       bindCrewActions(overview);
     } catch (exception) {
-      content.innerHTML = '<p class="ecocrew-form-error" role="alert">' + escapeHtml(exception.message || 'Crew data is unavailable.') + '</p>' + membershipActions();
+      content.innerHTML =
+        '<p class="ecocrew-form-error" role="alert">' +
+        escapeHtml(exception.message || 'Crew data is unavailable.') +
+        '</p>' +
+        membershipActions();
       bindCrewActions({ membership: null });
     }
   }
@@ -151,7 +173,29 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
       }),
     );
 
-    page.querySelector('[data-action="league"]')?.addEventListener('click', () => navigate('/league'));
+    page
+      .querySelector('[data-action="league"]')
+      ?.addEventListener('click', () => navigate('/league'));
+    page.querySelector('[data-leave-crew]')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      if (
+        !overview.membership?.crewId ||
+        !window.confirm('Leave ' + overview.membership.crewName + '?')
+      )
+        return;
+      button.disabled = true;
+      try {
+        await ecoCrewService.leaveCrew(overview.membership);
+        await loadCrew();
+      } catch (exception) {
+        const actionError = page.querySelector('[data-crew-action-error]');
+        if (actionError) {
+          actionError.textContent = exception.message || 'We could not leave your crew.';
+          actionError.hidden = false;
+        }
+        button.disabled = false;
+      }
+    });
     page.querySelectorAll('[data-reaction]').forEach((button) =>
       button.addEventListener('click', async () => {
         button.disabled = true;
@@ -165,15 +209,29 @@ export function renderFriendsPage({ navigate = defaultNavigate } = {}) {
     menu.querySelectorAll('[data-share]').forEach((button) =>
       button.addEventListener('click', async () => {
         const invite = await ecoCrewService.createInvite(overview.membership);
-        const link = invite.inviteUrl || window.location.origin + window.location.pathname + '#join/' + encodeURIComponent(invite.inviteCode);
-        const message = 'Join my EcoCrew, ' + overview.membership.crewName + '!';
+        const inviteCode = invite.inviteCode || '';
+        const link = window.location.origin + window.location.pathname + '#/crew';
+        const message =
+          'Join my EcoCrew, ' +
+          overview.membership.crewName +
+          '! Use invite code ' +
+          inviteCode +
+          '.';
         if (button.dataset.share === 'instagram') {
           await copyInvite(link, status);
           status.textContent = 'Link copied — paste it into Instagram.';
         } else {
           const urls = {
-            x: 'https://x.com/intent/post?text=' + encodeURIComponent(message) + '&url=' + encodeURIComponent(link),
-            telegram: 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(message),
+            x:
+              'https://x.com/intent/post?text=' +
+              encodeURIComponent(message) +
+              '&url=' +
+              encodeURIComponent(link),
+            telegram:
+              'https://t.me/share/url?url=' +
+              encodeURIComponent(link) +
+              '&text=' +
+              encodeURIComponent(message),
             whatsapp: 'https://wa.me/?text=' + encodeURIComponent(message + ' ' + link),
           };
           window.open(urls[button.dataset.share], '_blank', 'noopener,noreferrer');

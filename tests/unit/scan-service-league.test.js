@@ -17,12 +17,12 @@ describe('demo league eligibility', () => {
     });
   });
 
-  it('uses the joined crew identity for the seeded demo row', () => {
+  it('waits for the crew owner before a joined member is queued', () => {
     joinDemoCrew('ECO123');
     const overview = getDemoLeagueOverview();
 
-    expect(overview.eligibility).toBe('ranked');
+    expect(overview.eligibility).toBe('waiting');
     expect(overview.crewName).toBe('Glass Guardians');
-    expect(overview.rows.find((row) => row.trend === 'you')?.name).toBe('Glass Guardians');
+    expect(overview.rows).toEqual([]);
   });
 });

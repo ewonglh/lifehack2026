@@ -25,7 +25,12 @@ export const routes = [
   modernPublic('/auth', 'Sign in', ecoCrewRoutes['/login']),
   modernPublic('/login', 'Sign in', ecoCrewRoutes['/login']),
   modernPublic('/register', 'Create an account', ecoCrewRoutes['/register']),
-  { path: '/auth/callback', render: renderAuthCallbackPage, access: 'callback', layout: 'standalone' },
+  {
+    path: '/auth/callback',
+    render: renderAuthCallbackPage,
+    access: 'callback',
+    layout: 'standalone',
+  },
   { path: '/signed-in', render: renderSignedInPage, access: 'signed-in', layout: 'standalone' },
   { path: '/onboarding', render: renderOnboardingPage, access: 'onboarding', layout: 'standalone' },
   modernPrivate('/dashboard', 'Your EcoCrew', ecoCrewRoutes['/dashboard']),

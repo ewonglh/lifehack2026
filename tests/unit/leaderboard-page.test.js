@@ -5,17 +5,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const getLeagueOverview = vi.hoisted(() => vi.fn());
 const getCosmetics = vi.hoisted(() => vi.fn());
 const equipCosmetic = vi.hoisted(() => vi.fn());
+const queueForLeague = vi.hoisted(() => vi.fn());
+const cancelLeagueQueue = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/services/ecocrew-service.js', () => ({
-  ecoCrewService: { getLeagueOverview, getCosmetics, equipCosmetic },
+  ecoCrewService: {
+    getLeagueOverview,
+    getCosmetics,
+    equipCosmetic,
+    queueForLeague,
+    cancelLeagueQueue,
+  },
 }));
 
 import { renderLeaderboardPage } from '../../src/pages/leaderboard-page.js';
 
 describe('league page states', () => {
   beforeEach(() => {
+    getLeagueOverview.mockReset();
     getCosmetics.mockResolvedValue([]);
     equipCosmetic.mockResolvedValue(null);
+    queueForLeague.mockReset();
+    cancelLeagueQueue.mockReset();
   });
 
   it('shows a join-crew state without seeded standings for unaffiliated users', async () => {
@@ -52,7 +63,9 @@ describe('league page states', () => {
     expect(rendered.element.querySelector('[data-league-unranked]').hidden).toBe(false);
     expect(rendered.element.querySelector('[data-league-rankings]').hidden).toBe(true);
     expect(rendered.element.querySelector('[data-league-points]').textContent).toBe('—');
-    expect(rendered.element.querySelector('[data-league-rankings]').textContent).not.toContain('Another Crew');
+    expect(rendered.element.querySelector('[data-league-rankings]').textContent).not.toContain(
+      'Another Crew',
+    );
   });
 
   it('preserves rankings for an eligible crew', async () => {
@@ -69,7 +82,63 @@ describe('league page states', () => {
 
     expect(rendered.element.dataset.leagueState).toBe('ranked');
     expect(rendered.element.querySelector('[data-league-rankings]').hidden).toBe(false);
-    expect(rendered.element.querySelector('[data-league-rankings]').textContent).toContain('Glass Guardians');
+    expect(rendered.element.querySelector('[data-league-rankings]').textContent).toContain(
+      'Glass Guardians',
+    );
     expect(rendered.element.querySelector('[data-league-rankings]').textContent).toContain('You');
+  });
+
+  it('shows a queued state and delegates queue cancellation', async () => {
+    getLeagueOverview.mockResolvedValue({
+      eligibility: 'queued',
+      queueStatus: 'queued',
+      crewId: 'crew-1',
+      rows: [],
+      weeklyPoints: null,
+    });
+    cancelLeagueQueue.mockResolvedValue({ status: 'cancelled' });
+    const rendered = renderLeaderboardPage();
+
+    await rendered.afterRender();
+    expect(rendered.element.dataset.leagueState).toBe('queued');
+    expect(rendered.element.querySelector('[data-league-queued]').hidden).toBe(false);
+
+    rendered.element.querySelector('[data-cancel-queue]').click();
+    await vi.waitFor(() => expect(cancelLeagueQueue).toHaveBeenCalledWith('crew-1'));
+  });
+
+  it('shows the leader-waiting state for a crew member', async () => {
+    getLeagueOverview.mockResolvedValue({
+      eligibility: 'waiting',
+      crewName: 'Fresh Crew',
+      membershipRole: 'member',
+      rows: [],
+      weeklyPoints: null,
+    });
+    const rendered = renderLeaderboardPage();
+
+    await rendered.afterRender();
+
+    expect(rendered.element.dataset.leagueState).toBe('waiting');
+    expect(rendered.element.querySelector('[data-league-waiting]').hidden).toBe(false);
+    expect(rendered.element.querySelector('[data-queue-league]').hidden).toBe(true);
+  });
+
+  it('shows a queue CTA only for an eligible crew owner', async () => {
+    getLeagueOverview.mockResolvedValue({
+      eligibility: 'unranked',
+      crewId: 'crew-1',
+      canQueue: true,
+      rows: [],
+      weeklyPoints: 0,
+    });
+    queueForLeague.mockResolvedValue({ status: 'queued' });
+    const rendered = renderLeaderboardPage();
+
+    await rendered.afterRender();
+    const queueButton = rendered.element.querySelector('[data-queue-league]');
+    expect(queueButton.hidden).toBe(false);
+    queueButton.click();
+    await vi.waitFor(() => expect(queueForLeague).toHaveBeenCalledWith('crew-1'));
   });
 });

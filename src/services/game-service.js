@@ -62,6 +62,10 @@ export const gameService = {
     return invoke('manage-squad', { action: 'join', inviteCode });
   },
 
+  async leaveSquad(squadId) {
+    return invoke('manage-squad', { action: 'leave', squadId });
+  },
+
   async createInvite(squadId) {
     return invoke('manage-squad', { action: 'createInvite', squadId });
   },
@@ -102,7 +106,9 @@ export const gameService = {
       .maybeSingle();
     const { data: events, error: eventsError } = await supabase
       .from('activity_events')
-      .select('id, actor_id, event_type, payload, created_at, profiles(display_name), activity_reactions(emoji)')
+      .select(
+        'id, actor_id, event_type, payload, created_at, profiles(display_name), activity_reactions(emoji)',
+      )
       .eq('squad_id', current.squadId)
       .order('created_at', { ascending: false })
       .limit(10);

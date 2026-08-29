@@ -4,9 +4,11 @@ export function publicLayout(content) {
   return html`<div class="ecocrew-public-page">
     <header class="ecocrew-public-header">
       <a class="ecocrew-wordmark" href="#/auth"><span aria-hidden="true">✦</span> EcoCrew</a>
-      <div class="ecocrew-public-header__actions">
+      <div class="ecocrew-public-header-actions">
         <details class="ecocrew-page-info">
-          <summary aria-label="About EcoCrew"><i class="bi bi-info-lg" aria-hidden="true"></i></summary>
+          <summary aria-label="About EcoCrew">
+            <i class="bi bi-info-lg" aria-hidden="true"></i>
+          </summary>
           <div class="ecocrew-page-info__panel">
             <strong>About EcoCrew</strong>
             <p>Small recycling actions become a shared game with your crew.</p>

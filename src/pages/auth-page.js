@@ -8,40 +8,40 @@ function authMarkup(isRegister) {
     ? 'Join your crew and turn everyday choices into a shared win.'
     : 'Pick up where your crew left off.';
   return (
-    '<main class=\"ecocrew-auth-page\" tabindex=\"-1\">' +
-    '<div class=\"ecocrew-auth-header\"><a class=\"ecocrew-wordmark ecocrew-auth-page__brand\" href=\"#/auth\"><span aria-hidden=\"true\">✦</span> EcoCrew</a><details class=\"ecocrew-page-info\"><summary aria-label=\"About EcoCrew sign in\"><i class=\"bi bi-info-lg\" aria-hidden=\"true\"></i></summary><div class=\"ecocrew-page-info__panel\"><strong>Sign in to EcoCrew</strong><p>Your account keeps your display name, points, crew progress, and private post summaries together.</p></div></details></div>' +
-    '<section class=\"ecocrew-auth-card\" aria-labelledby=\"auth-title\">' +
-    '<p class=\"ecocrew-eyebrow\">' +
+    '<main class="ecocrew-auth-page" tabindex="-1">' +
+    '<div class="ecocrew-auth-header"><a class="ecocrew-wordmark ecocrew-auth-page__brand" href="#/auth"><span aria-hidden="true">✦</span> EcoCrew</a><details class="ecocrew-page-info"><summary aria-label="About EcoCrew sign in"><i class="bi bi-info-lg" aria-hidden="true"></i></summary><div class="ecocrew-page-info__panel"><strong>Sign in to EcoCrew</strong><p>Your account keeps your display name, points, crew progress, and private post summaries together.</p></div></details></div>' +
+    '<section class="ecocrew-auth-card" aria-labelledby="auth-title">' +
+    '<p class="ecocrew-eyebrow">' +
     (isRegister ? 'JOIN THE GOOD KIND OF COMPETITIVE' : 'YOUR CREW IS WAITING') +
-    '</p><h1 id=\"auth-title\">' +
+    '</p><h1 id="auth-title">' +
     actionLabel +
-    '</h1><p class=\"ecocrew-auth-card__lead\">' +
+    '</h1><p class="ecocrew-auth-card__lead">' +
     supportingText +
-    '</p><form class=\"ecocrew-auth-form\" data-auth-form novalidate>' +
+    '</p><form class="ecocrew-auth-form" data-auth-form novalidate>' +
     (isRegister
-      ? '<label>Display name<input name=\"name\" type=\"text\" autocomplete=\"name\" placeholder=\"What should your crew call you?\" required></label>'
+      ? '<label>Display name<input name="name" type="text" autocomplete="name" placeholder="What should your crew call you?" required></label>'
       : '') +
-    '<label>Email address<input name=\"email\" type=\"email\" autocomplete=\"email\" placeholder=\"you@example.com\" required></label>' +
-    '<label>Password<input name=\"password\" type=\"password\" autocomplete=\"' +
+    '<label>Email address<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>' +
+    '<label>Password<input name="password" type="password" autocomplete="' +
     (isRegister ? 'new-password' : 'current-password') +
-    '\" placeholder=\"At least 8 characters\" minlength=\"8\" required></label>' +
+    '" placeholder="At least 8 characters" minlength="8" required></label>' +
     (isRegister
-      ? '<label class=\"ecocrew-check\"><input name=\"terms\" type=\"checkbox\" required><span>I agree to keep EcoCrew kind and respectful.</span></label>'
+      ? '<label class="ecocrew-check"><input name="terms" type="checkbox" required><span>I agree to keep EcoCrew kind and respectful.</span></label>'
       : '') +
-    '<p class=\"ecocrew-form-error\" data-form-error role=\"alert\" hidden></p>' +
-    '<button class=\"btn ecocrew-btn-primary w-100\" type=\"submit\">' +
+    '<p class="ecocrew-form-error" data-form-error role="alert" hidden></p>' +
+    '<button class="btn ecocrew-btn-primary w-100" type="submit">' +
     (isRegister ? 'Create account' : 'Log in') +
     '</button></form>' +
-    '<div class=\"ecocrew-auth-divider\"><span>or continue with</span></div>' +
-    '<button class=\"btn ecocrew-social-button w-100\" type=\"button\" data-social-login><i class=\"bi bi-google\" aria-hidden=\"true\"></i> Google</button>' +
+    '<div class="ecocrew-auth-divider"><span>or continue with</span></div>' +
+    '<button class="btn ecocrew-social-button w-100" type="button" data-social-login><i class="bi bi-google" aria-hidden="true"></i> Google</button>' +
     (useMockData
-      ? '<button class=\"btn btn-link btn-sm text-danger mt-3\" type=\"button\" data-reset-mock>Reset local demo data</button>'
+      ? '<button class="btn btn-link btn-sm text-danger mt-3" type="button" data-reset-mock>Reset local demo data</button>'
       : '') +
-    '<p class=\"ecocrew-auth-switch\">' +
+    '<p class="ecocrew-auth-switch">' +
     (isRegister ? 'Already part of EcoCrew?' : 'New to EcoCrew?') +
-    ' <a href=\"#/' +
+    ' <a href="#/' +
     (isRegister ? 'login' : 'register') +
-    '\">' +
+    '">' +
     (isRegister ? 'Log in' : 'Create an account') +
     '</a></p></section></main>'
   );
@@ -73,7 +73,7 @@ export function renderAuthPage({ session, navigate = defaultNavigate } = {}) {
       return;
     }
     const values = Object.fromEntries(new FormData(form));
-    const submitButton = form.querySelector('button[type=\"submit\"]');
+    const submitButton = form.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     try {
       if (isRegister) {

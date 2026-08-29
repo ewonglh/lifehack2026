@@ -29,14 +29,18 @@ export function renderSettingsPage({ profile = {}, session, navigate = defaultNa
       escapeHtml(profileValue(profile, 'about', 'about')) +
       '</textarea></label>' +
       '<label for="settings-age-visibility">Age visibility<select id="settings-age-visibility" name="ageVisibility"><option value="private" ' +
-      (profileValue(profile, 'ageVisibility', 'age_visibility', 'private') === 'private' ? 'selected' : '') +
+      (profileValue(profile, 'ageVisibility', 'age_visibility', 'private') === 'private'
+        ? 'selected'
+        : '') +
       '>Private</option><option value="crew" ' +
       (profileValue(profile, 'ageVisibility', 'age_visibility') === 'crew' ? 'selected' : '') +
       '>Crew</option><option value="public" ' +
       (profileValue(profile, 'ageVisibility', 'age_visibility') === 'public' ? 'selected' : '') +
       '>Public</option></select></label>' +
       '<label class="ecocrew-settings-check"><input name="leaderboardVisible" type="checkbox" ' +
-      (profileValue(profile, 'leaderboardVisible', 'leaderboard_visible', true) !== false ? 'checked' : '') +
+      (profileValue(profile, 'leaderboardVisible', 'leaderboard_visible', true) !== false
+        ? 'checked'
+        : '') +
       '><span>Show me on contact leaderboards</span></label>' +
       '<p class="ecocrew-form-error" data-settings-error role="alert" hidden></p>' +
       '<div class="ecocrew-actions"><button class="btn ecocrew-btn-secondary" type="button" data-cancel-settings>Cancel</button><button class="btn ecocrew-btn-primary" type="submit">Save changes</button></div>' +
@@ -46,7 +50,9 @@ export function renderSettingsPage({ profile = {}, session, navigate = defaultNa
 
   const form = page.querySelector('[data-settings-form]');
   const error = page.querySelector('[data-settings-error]');
-  form.querySelector('[data-cancel-settings]').addEventListener('click', () => navigate('/profile'));
+  form
+    .querySelector('[data-cancel-settings]')
+    .addEventListener('click', () => navigate('/profile'));
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(form));

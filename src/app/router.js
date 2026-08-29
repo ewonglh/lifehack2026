@@ -60,14 +60,26 @@ async function renderModernRoute({ root, route, path, current, navigate, session
     params,
   });
   const element = rendered?.element ?? rendered;
-  if (!(element instanceof window.HTMLElement)) throw new Error('The page did not return an HTML element.');
+  if (!(element instanceof window.HTMLElement))
+    throw new Error('The page did not return an HTML element.');
 
   document.title = (rendered?.title ?? route.title ?? 'EcoCrew') + ' · EcoCrew';
-  root.replaceChildren(route.layout === 'app' ? renderAppLayout(element, path, current.profile) : element);
+  root.replaceChildren(
+    route.layout === 'app' ? renderAppLayout(element, path, current.profile) : element,
+  );
   initializeAppLayout();
   const afterRender = rendered?.afterRender ?? element.afterRender;
-  if (afterRender) await afterRender({ navigate, session, rawSession: current.session, params, sessionState: current });
-  document.querySelector('#main-content, .ecocrew-page, .ecocrew-auth-page')?.focus({ preventScroll: true });
+  if (afterRender)
+    await afterRender({
+      navigate,
+      session,
+      rawSession: current.session,
+      params,
+      sessionState: current,
+    });
+  document
+    .querySelector('#main-content, .ecocrew-page, .ecocrew-auth-page')
+    ?.focus({ preventScroll: true });
 }
 
 export function createRouter({ root, session }) {
@@ -85,9 +97,9 @@ export function createRouter({ root, session }) {
     } catch (exception) {
       const error = toAppError(exception);
       root.innerHTML = publicLayout(
-        '<section class=\"ecocrew-public-message\" role=\"alert\"><p class=\"ecocrew-kicker\">TEMPORARY ERROR</p><h1>We could not load this page.</h1><p>' +
+        '<section class="ecocrew-public-message" role="alert"><p class="ecocrew-kicker">TEMPORARY ERROR</p><h1>We could not load this page.</h1><p>' +
           escapeHtml(error.message) +
-          '</p><a class=\"btn ecocrew-btn-primary\" href=\"#/auth\">Return to sign in</a></section>',
+          '</p><a class="btn ecocrew-btn-primary" href="#/auth">Return to sign in</a></section>',
       );
     }
   }

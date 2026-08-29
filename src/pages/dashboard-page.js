@@ -20,9 +20,9 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
     'Make today count.',
     name === 'there' ? 'Your daily check-in' : 'Welcome back, ' + name,
     '<section class="ecocrew-hero-card">' +
-      '<div><p class="ecocrew-kicker">TODAY’S POST</p><h2 data-dashboard-task>Loading today’s task…</h2><p data-dashboard-task-meta>One verified choice helps your crew.</p></div>' +
+      '<div><p class="ecocrew-kicker">TODAY’S TASK</p><h2 data-dashboard-task>Loading today’s task…</h2><p data-dashboard-task-meta>One verified choice helps your crew.</p></div>' +
       '<span class="ecocrew-hero-card__art" aria-hidden="true">♻</span>' +
-      '<button class="btn ecocrew-btn-primary" type="button" data-action="sort">Create today’s post</button>' +
+      '<button class="btn ecocrew-btn-primary" type="button" data-action="sort">Complete today’s task</button>' +
       '</section>' +
       '<section class="ecocrew-stat-grid" aria-label="Your progress">' +
       '<article><span>Today</span><strong data-dashboard-today>—</strong><small>points earned</small></article>' +
@@ -101,7 +101,7 @@ export function renderDashboardPage({ profile, navigate = defaultNavigate } = {}
               '/result/' + encodeURIComponent(data.todaySubmissionId || 'latest');
             setText(page, '[data-dashboard-task-meta]', 'Today’s challenge is complete.');
           } else {
-            button.textContent = crew.membership ? 'Create today’s post' : 'Create a post';
+            button.textContent = crew.membership ? 'Complete today’s task' : 'Start today’s task';
             button.dataset.destination = '/sort';
           }
         }

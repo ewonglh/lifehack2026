@@ -101,9 +101,30 @@ export const leagueRows = [
 ];
 
 export const cosmetics = [
-  { id: 'leaf-frame', name: 'Leaf Frame', kind: 'frame', icon: '🌿', unlocked: true, equipped: true },
-  { id: 'sprout-badge', name: 'Sprout Badge', kind: 'badge', icon: '🌱', unlocked: true, equipped: false },
-  { id: 'mushroom-frame', name: 'Mushroom Frame', kind: 'frame', icon: '🍄', unlocked: false, progress: '2 more correct sorts' },
+  {
+    id: 'leaf-frame',
+    name: 'Leaf Frame',
+    kind: 'frame',
+    icon: '🌿',
+    unlocked: true,
+    equipped: true,
+  },
+  {
+    id: 'sprout-badge',
+    name: 'Sprout Badge',
+    kind: 'badge',
+    icon: '🌱',
+    unlocked: true,
+    equipped: false,
+  },
+  {
+    id: 'mushroom-frame',
+    name: 'Mushroom Frame',
+    kind: 'frame',
+    icon: '🍄',
+    unlocked: false,
+    progress: '2 more correct sorts',
+  },
 ];
 
 export const profile = {

@@ -28,7 +28,7 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
     'Create a post',
     'Daily challenge',
     '<section class="ecocrew-sort-card">' +
-      '<p class="ecocrew-task-prompt" data-task-prompt>Loading your daily task…</p>' +
+      '<div class="ecocrew-task-prompt"><p class="ecocrew-kicker">YOUR TASK</p><h2 data-task-prompt>Loading your daily task…</h2><p data-task-guidance>Upload evidence for one verified choice with your crew.</p></div>' +
       '<div class="ecocrew-upload" data-upload-area>' +
       '<input id="item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" class="visually-hidden">' +
       '<label for="item-photo" class="ecocrew-upload__label"><span class="ecocrew-upload__icon" aria-hidden="true">⌁</span><strong>Add a post photo</strong><small>Use your camera or choose an image</small></label>' +
@@ -52,6 +52,7 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
   const resultLink = page.querySelector('[data-submit-result-link]');
   let taskId;
   let completed = false;
+  let previewUrl = null;
 
   function showCompleted(result) {
     completed = true;
@@ -68,14 +69,29 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
     resultLink.href = '#/result/' + encodeURIComponent(submissionId);
   }
 
-  page.querySelector('[data-upload-area]')?.addEventListener('click', () => {
-    if (!completed) photo?.click();
-  });
   photo?.addEventListener('change', () => {
     if (completed) return;
     const file = photo.files?.[0];
     if (!file) return;
-    preview.src = window.URL.createObjectURL(file);
+    if (
+      !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
+      file.size > 10 * 1024 * 1024
+    ) {
+      if (previewUrl) window.URL.revokeObjectURL(previewUrl);
+      previewUrl = null;
+      preview.removeAttribute('src');
+      preview.classList.add('d-none');
+      page.querySelector('[data-upload-area]').querySelector('.ecocrew-upload__label').hidden =
+        false;
+      choices.hidden = true;
+      error.textContent = 'Choose a JPEG, PNG, or WebP image smaller than 10 MB.';
+      error.hidden = false;
+      photo.value = '';
+      return;
+    }
+    if (previewUrl) window.URL.revokeObjectURL(previewUrl);
+    previewUrl = window.URL.createObjectURL(file);
+    preview.src = previewUrl;
     preview.classList.remove('d-none');
     page.querySelector('.ecocrew-upload__label').hidden = true;
     choices.hidden = false;
@@ -126,7 +142,17 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
         const task = await ecoCrewService.getDailyTask();
         taskId = task?.taskId;
         const prompt = page.querySelector('[data-task-prompt]');
+        const guidance = page.querySelector('[data-task-guidance]');
         if (prompt) prompt.textContent = task?.prompt || 'Choose an item to sort today.';
+        if (guidance) {
+          guidance.textContent = task?.targetMaterial
+            ? 'Target: ' +
+              task.targetMaterial +
+              ' ' +
+              (task.targetObject || 'item') +
+              '. Add photo evidence, then choose your best bin.'
+            : 'Add photo evidence, then choose your best bin.';
+        }
         const existingResult = ecoCrewService.getLastResult();
         if (existingResult?.taskDay === task?.taskDay) showCompleted(existingResult);
       } catch (exception) {

@@ -6,6 +6,7 @@ import { profileService } from './profile-service.js';
 import {
   createDemoCrew,
   createDemoInvite,
+  cancelDemoLeagueQueue,
   equipDemoCosmetic,
   getCrewMembership,
   getDemoCosmetics,
@@ -16,6 +17,8 @@ import {
   getDailyTask,
   getLastResult,
   joinDemoCrew,
+  leaveDemoCrew,
+  queueDemoLeague,
   addReaction,
   submitDemoTask,
   updateDemoProfile,
@@ -194,6 +197,13 @@ export const ecoCrewService = {
     return normalizeMembership(overview.membership ?? { squadId: response.squadId, role: 'owner' });
   },
 
+  async leaveCrew(membership) {
+    const crewId = membership?.crewId || (await this.getCrewOverview()).membership?.crewId;
+    if (!crewId) return null;
+    if (useMockData) return leaveDemoCrew();
+    return gameService.leaveSquad(crewId);
+  },
+
   async createInvite(membership) {
     if (useMockData) return createDemoInvite();
     return gameService.createInvite(membership.crewId);
@@ -218,6 +228,36 @@ export const ecoCrewService = {
         rows: [],
         weeklyPoints: null,
         resetLabel: 'Resets Monday at 00:00 SGT.',
+        queueStatus: 'none',
+        canQueue: false,
+      };
+    }
+    const crewOverview = await gameService.getCrewOverview();
+    const membershipRole = crewOverview.membership?.role;
+    if (current.queue?.status === 'queued') {
+      return {
+        eligibility: 'queued',
+        crewId: current.squadId,
+        crewName: crewOverview.membership?.crewName || 'Your crew',
+        rows: [],
+        weeklyPoints: null,
+        resetLabel: 'Resets Monday at 00:00 SGT.',
+        queueStatus: 'queued',
+        canQueue: false,
+        membershipRole,
+      };
+    }
+    if (!current.league && membershipRole !== 'owner') {
+      return {
+        eligibility: 'waiting',
+        crewId: current.squadId,
+        crewName: crewOverview.membership?.crewName || 'Your crew',
+        rows: [],
+        weeklyPoints: null,
+        resetLabel: 'Resets Monday at 00:00 SGT.',
+        queueStatus: 'none',
+        canQueue: false,
+        membershipRole,
       };
     }
     const leagues = await gameService.getLeagues();
@@ -242,7 +282,22 @@ export const ecoCrewService = {
         own?.score ?? current.league?.score ?? current.progression?.weekly_points ?? 0,
       ),
       resetLabel: 'Resets Monday at 00:00 SGT.',
+      queueStatus: 'none',
+      canQueue: !current.league && membershipRole === 'owner',
+      membershipRole,
     };
+  },
+
+  async queueForLeague(crewId) {
+    if (useMockData) return queueDemoLeague();
+    const id = crewId || (await this.getCrewOverview()).membership?.crewId;
+    return id ? gameService.queueForLeague(id) : null;
+  },
+
+  async cancelLeagueQueue(crewId) {
+    if (useMockData) return cancelDemoLeagueQueue();
+    const id = crewId || (await this.getCrewOverview()).membership?.crewId;
+    return id ? gameService.cancelLeagueQueue(id) : null;
   },
 
   async getCosmetics() {

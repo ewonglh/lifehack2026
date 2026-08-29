@@ -3,8 +3,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   completeDemoSort,
+  createDemoCrew,
   getDailyTask,
+  getDemoLeagueOverview,
   getDemoState,
+  joinDemoCrew,
+  leaveDemoCrew,
+  queueDemoLeague,
+  cancelDemoLeagueQueue,
   submitDemoTask,
 } from '../../src/features/ecocrew/scan-service.js';
 
@@ -108,5 +114,19 @@ describe('demo submission rules', () => {
     expect(() => completeDemoSort('recycle')).toThrowError(
       expect.objectContaining({ code: 'DAILY_TASK_ALREADY_SUBMITTED' }),
     );
+  });
+
+  it('keeps crew leave and league queue behavior role-aware in the mock adapter', () => {
+    createDemoCrew('Green Team');
+    expect(queueDemoLeague()).toEqual({ status: 'queued' });
+    expect(getDemoLeagueOverview()).toMatchObject({ eligibility: 'queued', queueStatus: 'queued' });
+    expect(cancelDemoLeagueQueue()).toEqual({ status: 'cancelled' });
+    expect(getDemoLeagueOverview()).toMatchObject({ queueStatus: 'none', canQueue: true });
+    expect(leaveDemoCrew()).toBe(false);
+
+    joinDemoCrew('ABC123');
+    expect(getDemoLeagueOverview()).toMatchObject({ eligibility: 'waiting', queueStatus: 'none' });
+    expect(leaveDemoCrew()).toBe(true);
+    expect(getDemoLeagueOverview()).toMatchObject({ eligibility: 'no_crew', crewId: null });
   });
 });

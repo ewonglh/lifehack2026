@@ -40,6 +40,7 @@ function initialState() {
     profile: { ...profile },
     posts: [],
     crewMembership: null,
+    leagueQueueStatus: 'none',
   };
 }
 
@@ -321,11 +322,7 @@ export function createDemoInvite() {
   const membership = getCrewMembership();
   return {
     inviteCode: membership?.inviteCode || 'ECO123',
-    inviteUrl:
-      window.location.origin +
-      window.location.pathname +
-      '#/join/' +
-      encodeURIComponent(membership?.inviteCode || 'ECO123'),
+    inviteUrl: window.location.origin + window.location.pathname + '#/crew',
   };
 }
 
@@ -364,6 +361,36 @@ export function getDemoLeagueOverview() {
       rows: [],
       weeklyPoints: null,
       resetLabel: getLeagueResetLabel(),
+      queueStatus: 'none',
+      canQueue: false,
+    };
+  }
+
+  if (state.leagueQueueStatus === 'queued') {
+    return {
+      eligibility: 'queued',
+      crewId: membership.crewId || null,
+      crewName: membership.crewName || crew.name,
+      rows: [],
+      weeklyPoints: null,
+      resetLabel: getLeagueResetLabel(),
+      queueStatus: 'queued',
+      canQueue: false,
+      membershipRole: membership.role,
+    };
+  }
+
+  if (membership.role !== 'owner') {
+    return {
+      eligibility: 'waiting',
+      crewId: membership.crewId || null,
+      crewName: membership.crewName || crew.name,
+      rows: [],
+      weeklyPoints: null,
+      resetLabel: getLeagueResetLabel(),
+      queueStatus: 'none',
+      canQueue: false,
+      membershipRole: membership.role,
     };
   }
 
@@ -383,6 +410,9 @@ export function getDemoLeagueOverview() {
     rows,
     weeklyPoints: state.weeklyPoints,
     resetLabel: getLeagueResetLabel(),
+    queueStatus: 'none',
+    canQueue: membership.role === 'owner',
+    membershipRole: membership.role,
   };
 }
 
@@ -396,4 +426,25 @@ export function equipDemoCosmetic(cosmeticId) {
 
 export function getLeagueResetLabel() {
   return 'Resets Monday at 00:00 SGT.';
+}
+
+export function leaveDemoCrew() {
+  const state = getDemoState();
+  if (!state.crewMembership || state.crewMembership.role === 'owner') return false;
+  save({ ...state, crewMembership: null, leagueQueueStatus: 'none', weeklyPoints: 0 });
+  return true;
+}
+
+export function queueDemoLeague() {
+  const state = getDemoState();
+  if (state.crewMembership?.role !== 'owner') return null;
+  save({ ...state, leagueQueueStatus: 'queued' });
+  return { status: 'queued' };
+}
+
+export function cancelDemoLeagueQueue() {
+  const state = getDemoState();
+  if (state.crewMembership?.role !== 'owner' || state.leagueQueueStatus !== 'queued') return null;
+  save({ ...state, leagueQueueStatus: 'none' });
+  return { status: 'cancelled' };
 }

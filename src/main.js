@@ -13,9 +13,9 @@ const router = createRouter({ root, session });
 
 function renderStartupError(error) {
   root.innerHTML = publicLayout(
-    '<section class=\"ecocrew-public-message\" role=\"alert\"><p class=\"ecocrew-kicker\">STARTUP</p><h1>EcoCrew could not start.</h1><p>' +
+    '<section class="ecocrew-public-message" role="alert"><p class="ecocrew-kicker">STARTUP</p><h1>EcoCrew could not start.</h1><p>' +
       escapeHtml(error.message || 'The session could not be restored.') +
-      '</p><div class=\"ecocrew-actions\"><button class=\"btn ecocrew-btn-primary\" type=\"button\" data-retry-session>Try again</button><a class=\"btn ecocrew-btn-secondary\" href=\"#/auth\">Continue to sign in</a></div></section>',
+      '</p><div class="ecocrew-actions"><button class="btn ecocrew-btn-primary" type="button" data-retry-session>Try again</button><a class="btn ecocrew-btn-secondary" href="#/auth">Continue to sign in</a></div></section>',
   );
 }
 
