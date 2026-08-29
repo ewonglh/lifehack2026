@@ -1,0 +1,32 @@
+create extension if not exists pgcrypto;
+create type public.disposal_bin as enum ('recycle','compost','reuse_return','landfill','unknown');
+create type public.submission_status as enum ('awaiting_upload','pending','processing','approved','rejected','failed');
+create table public.profiles (id uuid primary key references auth.users(id) on delete cascade, username text not null, avatar text, country text, timezone text not null default 'UTC', created_at timestamptz not null default now());
+create unique index profiles_username_lower on public.profiles (lower(username));
+create table public.crews (id uuid primary key default gen_random_uuid(), name text not null, owner_id uuid not null references public.profiles(id), league text not null default 'seedlings', created_at timestamptz not null default now());
+create table public.crew_members (crew_id uuid references public.crews(id) on delete cascade, profile_id uuid references public.profiles(id) on delete cascade, role text not null default 'member' check(role in ('owner','member')), active boolean not null default true, joined_at timestamptz not null default now(), primary key(crew_id,profile_id));
+create table public.submissions (id uuid primary key default gen_random_uuid(), profile_id uuid not null references public.profiles(id) on delete cascade, crew_id uuid references public.crews(id), image_path text not null, status public.submission_status not null default 'awaiting_upload', user_bin public.disposal_bin, final_bin public.disposal_bin, model_result jsonb, confidence numeric(4,3), score int not null default 0, rejection_reason text, idempotency_key text not null unique, locale text not null, created_at timestamptz not null default now(), analyzed_at timestamptz);
+create table public.daily_quotas (profile_id uuid references public.profiles(id) on delete cascade, day date not null, used int not null default 0, max_allowed int not null default 5, primary key(profile_id,day));
+create table public.score_events (id uuid primary key default gen_random_uuid(), profile_id uuid not null references public.profiles(id) on delete cascade, crew_id uuid references public.crews(id), submission_id uuid references public.submissions(id), action_type text not null, points int not null check(points >= 0), rule_version text not null default '2026-08-01', occurred_at timestamptz not null default now());
+create table public.weekly_missions (id uuid primary key default gen_random_uuid(), title text not null, theme text not null, target int not null, starts_at timestamptz not null, ends_at timestamptz not null);
+create table public.mission_progress (mission_id uuid references public.weekly_missions(id) on delete cascade, crew_id uuid references public.crews(id) on delete cascade, progress int not null default 0, primary key(mission_id,crew_id));
+
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$ begin insert into public.profiles(id,username) values(new.id,coalesce(new.raw_user_meta_data->>'username','player-'||substr(new.id::text,1,8))); return new; end; $$;
+create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+create or replace function public.is_crew_member(target uuid) returns boolean language sql stable security definer set search_path=public as $$ select exists(select 1 from public.crew_members where crew_id=target and profile_id=auth.uid() and active); $$;
+create or replace function public.reserve_daily_quota(player uuid) returns boolean language plpgsql security definer set search_path=public as $$ declare ok boolean; begin insert into public.daily_quotas(profile_id,day) values(player,current_date) on conflict do nothing; update public.daily_quotas set used=used+1 where profile_id=player and day=current_date and used<max_allowed returning true into ok; return coalesce(ok,false); end; $$;
+
+alter table public.profiles enable row level security; alter table public.crews enable row level security; alter table public.crew_members enable row level security; alter table public.submissions enable row level security; alter table public.daily_quotas enable row level security; alter table public.score_events enable row level security; alter table public.weekly_missions enable row level security; alter table public.mission_progress enable row level security;
+create policy profiles_self_or_crew on public.profiles for select using(id=auth.uid() or exists(select 1 from public.crew_members mine join public.crew_members theirs on mine.crew_id=theirs.crew_id where mine.profile_id=auth.uid() and mine.active and theirs.profile_id=id and theirs.active));
+create policy profiles_update_self on public.profiles for update using(id=auth.uid()) with check(id=auth.uid());
+create policy crews_members_read on public.crews for select using(public.is_crew_member(id));
+create policy members_self_or_crew on public.crew_members for select using(profile_id=auth.uid() or public.is_crew_member(crew_id));
+create policy submissions_self on public.submissions for select using(profile_id=auth.uid());
+create policy quota_self on public.daily_quotas for select using(profile_id=auth.uid());
+create policy scores_self_or_crew on public.score_events for select using(profile_id=auth.uid() or public.is_crew_member(crew_id));
+create policy missions_public on public.weekly_missions for select using(true);
+create policy mission_crew on public.mission_progress for select using(public.is_crew_member(crew_id));
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('item-images','item-images',false,10485760,array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;
+create policy item_images_insert_own on storage.objects for insert to authenticated with check(bucket_id='item-images' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy item_images_read_own on storage.objects for select to authenticated using(bucket_id='item-images' and (storage.foldername(name))[1]=auth.uid()::text);
+create policy item_images_delete_own on storage.objects for delete to authenticated using(bucket_id='item-images' and (storage.foldername(name))[1]=auth.uid()::text);
