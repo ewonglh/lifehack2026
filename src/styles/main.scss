@@ -1,2 +1,79 @@
 @use "bootstrap-overrides";
 @use "tokens";
+
+body {
+  min-width: 320px;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-main {
+  padding-block: 2rem 4rem;
+}
+
+.brand-mark {
+  color: var(--bs-primary);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.surface-card {
+  background: var(--ec-surface);
+  border: 0;
+  box-shadow: var(--ec-shadow);
+}
+
+.hero {
+  background: linear-gradient(135deg, #e5f4df, #d9eee9);
+  border-radius: 1.5rem;
+}
+
+.page-intro {
+  max-width: 44rem;
+}
+
+.nav-link.active {
+  font-weight: 700;
+}
+
+.avatar {
+  align-items: center;
+  background: var(--bs-primary);
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-weight: 700;
+  justify-content: center;
+}
+
+.avatar-sm {
+  height: 2rem;
+  width: 2rem;
+}
+
+.avatar-lg {
+  font-size: 1.5rem;
+  height: 5rem;
+  width: 5rem;
+}
+
+.toast-stack {
+  bottom: 1rem;
+  max-width: calc(100vw - 2rem);
+  position: fixed;
+  right: 1rem;
+  width: 22rem;
+  z-index: 1080;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

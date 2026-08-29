@@ -32,6 +32,19 @@ npm run dev
 
 Open <http://localhost:3000>. Vite provides hot module replacement while the server is running.
 
+## Configure Supabase
+
+The app starts in a persistent local mock mode when Supabase is not configured. This lets the authentication, onboarding, profile, and friends screens be developed without privileged credentials.
+
+To connect a Supabase project, copy `.env.example` to `.env.local` and add only browser-safe project values:
+
+```shell
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-publishable-anon-key
+```
+
+Add `http://localhost:3000/?auth_callback=1#/auth/callback` and the equivalent deployed URL to Supabase Auth’s allowed redirect URLs before testing Google OAuth or magic links. Never add a Supabase service-role key or an OpenAI key to a `VITE_` variable. The current frontend expects a `profiles` table; the friend service remains mock-backed until the backend friendship contract is merged.
+
 ## Validate a change
 
 Run the same checks used in CI:
@@ -67,5 +80,7 @@ Then open <http://localhost:4173>.
 - `public/` contains static assets copied unchanged into production builds.
 - `supabase/` is reserved for database migrations and Edge Functions.
 - `tests/` is reserved for unit, integration, and end-to-end tests.
+
+The application uses hash routes, so static hosts do not need server-side SPA rewrite rules. Core frontend routes are `#/`, `#/auth`, `#/auth/callback`, `#/onboarding`, `#/dashboard`, `#/friends`, `#/profile`, and `#/settings`.
 
 Bootstrap JavaScript plugins should be imported only by the component that uses them; do not add jQuery or a global Bootstrap bundle.

@@ -1,0 +1,3 @@
+export function confirmModal({ id, title, body, confirmLabel = 'Confirm', tone = 'danger' }) {
+  return `<div class="modal fade" id="${id}" tabindex="-1" aria-labelledby="${id}-title" aria-hidden="true"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="${id}-title">${title}</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body">${body}</div><div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-${tone}" type="button" data-confirm>${confirmLabel}</button></div></div></div></div>`;
+}

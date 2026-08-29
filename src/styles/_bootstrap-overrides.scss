@@ -1,2 +1,17 @@
-// Configure Bootstrap Sass variables in this module's `with` clause.
-@forward "bootstrap/scss/bootstrap";
+$primary: #176b4d;
+$secondary: #4f7866;
+$success: #198754;
+$body-bg: #f7faf7;
+$body-color: #183127;
+$border-radius: 0.75rem;
+$focus-ring-color: rgba($primary, 0.35);
+
+@forward "bootstrap/scss/bootstrap" with (
+  $primary: $primary,
+  $secondary: $secondary,
+  $success: $success,
+  $body-bg: $body-bg,
+  $body-color: $body-color,
+  $border-radius: $border-radius,
+  $focus-ring-color: $focus-ring-color
+);
