@@ -18,7 +18,7 @@ Copy `.env.example` to `.env.local`, then serve the authenticated functions:
 npx supabase functions serve --env-file supabase/.env.local
 ```
 
-Set `MOCK_VLM=true` for deterministic demos. Deterministic fixtures are ignored unless that flag is explicitly enabled. For live analysis, set `MOCK_VLM=false`, provide `OPENROUTER_API_KEY`, and optionally select a compatible vision model with `OPENROUTER_MODEL` (default: `minimax/minimax-m3:free`). Missing or unavailable live-model configuration returns an `unknown`/`ai_failure` result with manual retry guidance.
+Set `MOCK_VLM=true` for deterministic demos. Deterministic fixtures are ignored unless that flag is explicitly enabled. For live analysis, set `MOCK_VLM=false`, provide `OPENAI_API_KEY`, and optionally select a vision model with `OPENAI_MODEL` (default: `gpt-4o-mini`). Missing or unavailable live-model configuration returns an `unknown`/`ai_failure` result with manual retry guidance.
 
 ## Client flow
 
@@ -58,4 +58,4 @@ npx supabase functions deploy manage-contacts
 npx supabase functions deploy league-jobs
 ```
 
-Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_SITE_URL`, `OPENROUTER_APP_TITLE`, `CRON_SECRET`, and the contact-provider secrets from `.env.example` as Edge Function secrets. Configure a weekly scheduler to POST to `league-jobs` with `x-cron-secret: $CRON_SECRET`. Keep `SUPABASE_SERVICE_ROLE_KEY`, provider access tokens, `CRON_SECRET`, and `OPENROUTER_API_KEY` out of all `VITE_` variables and browser bundles.
+Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `CRON_SECRET`, and the contact-provider secrets from `.env.example` as Edge Function secrets. Configure a weekly scheduler to POST to `league-jobs` with `x-cron-secret: $CRON_SECRET`. Keep `SUPABASE_SERVICE_ROLE_KEY`, provider access tokens, `CRON_SECRET`, and `OPENAI_API_KEY` out of all `VITE_` variables and browser bundles.

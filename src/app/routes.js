@@ -7,6 +7,7 @@ import { ecoCrewRoutes } from '../features/ecocrew/routes.js';
 import { renderJoinCrewPage } from '../pages/join-crew-page.js';
 import { renderMeasurementPage } from '../pages/measurement-page.js';
 import { renderLandingPage } from '../pages/landing-page.js';
+import { renderDashboardVariantsPage } from '../pages/dashboard-variants-page.js';
 
 const modernPrivate = (path, title, render) => ({
   path,
@@ -50,6 +51,7 @@ export const routes = [
   { path: '/signed-in', render: renderSignedInPage, access: 'signed-in', layout: 'standalone' },
   { path: '/onboarding', render: renderOnboardingPage, access: 'onboarding', layout: 'standalone' },
   modernPrivate('/dashboard', 'Your EcoCrew', ecoCrewRoutes['/dashboard']),
+  modernPrivate('/dashboard/variants', 'Dashboard design review', renderDashboardVariantsPage),
   modernPrivate('/sort', 'Today’s action', ecoCrewRoutes['/sort']),
   modernPrivate('/result', 'Your action', ecoCrewRoutes['/result']),
   {

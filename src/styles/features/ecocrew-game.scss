@@ -324,6 +324,519 @@
   background: #e7f2e9;
 }
 
+.ecocrew-dashboard-review {
+  padding-bottom: 2rem;
+}
+
+.ecocrew-dashboard-review__note {
+  padding: .8rem 1rem;
+  margin-bottom: 1.25rem;
+  border: 2px dashed var(--eco-moss);
+  border-radius: 1rem;
+  color: #536862;
+  font-size: .8rem;
+}
+
+.ecocrew-dashboard-review__variant {
+  padding: 1rem;
+  margin-bottom: 2rem;
+  border: 2px dashed #9bb8a7;
+  border-radius: 1.5rem;
+  background: #edf5e8;
+}
+
+.ecocrew-dashboard-review__variant-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 .25rem 1rem;
+}
+
+.ecocrew-dashboard-review__variant-heading h2 {
+  margin: 0;
+  font-size: 1.55rem;
+}
+
+.ecocrew-dashboard-review__variant-heading > span {
+  padding: .25rem .5rem;
+  border-radius: 2rem;
+  background: white;
+  color: #536862;
+  font-size: .7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ecocrew-dashboard-review__task,
+.ecocrew-dashboard-review__streak,
+.ecocrew-dashboard-review__mission {
+  padding: 1.15rem;
+  margin-bottom: .75rem;
+  border: 2px solid var(--eco-ink);
+  border-radius: 1.25rem;
+  box-shadow: 3px 3px 0 var(--eco-ink);
+}
+
+.ecocrew-dashboard-review__task {
+  background: var(--eco-moss);
+  color: white;
+}
+
+.ecocrew-dashboard-review__task .ecocrew-kicker {
+  color: var(--eco-lime);
+}
+
+.ecocrew-dashboard-review__task-title {
+  margin-bottom: .35rem;
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.ecocrew-dashboard-review__task h3 {
+  position: relative;
+  z-index: 1;
+  max-width: 25rem;
+  margin-bottom: .5rem;
+  font-size: 1.35rem;
+}
+
+.ecocrew-dashboard-review__task p:not(.ecocrew-kicker, .ecocrew-dashboard-review__task-title) {
+  max-width: 29rem;
+  color: #e7f2e9;
+  font-size: .8rem;
+}
+
+.ecocrew-dashboard-review__task .btn {
+  margin-top: .35rem;
+}
+
+.ecocrew-dashboard-review__streak {
+  background: white;
+}
+
+.ecocrew-dashboard-review__streak h3 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.ecocrew-dashboard-review__streak-heading,
+.ecocrew-dashboard-review__week-heading,
+.ecocrew-dashboard-review__tiles-heading,
+.ecocrew-dashboard-review__tiles-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+.ecocrew-dashboard-review__best {
+  padding-left: .75rem;
+  border-left: 1px solid #cbd8d1;
+  color: #536862;
+  font-size: .7rem;
+  text-align: right;
+}
+
+.ecocrew-dashboard-review__best span,
+.ecocrew-dashboard-review__best strong {
+  display: block;
+}
+
+.ecocrew-dashboard-review__best strong {
+  margin-top: .2rem;
+  color: var(--eco-ink);
+  font-size: .9rem;
+}
+
+.ecocrew-dashboard-review__week-heading {
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid #cbd8d1;
+  color: #536862;
+  font-size: .75rem;
+}
+
+.ecocrew-dashboard-review__week-heading strong {
+  color: var(--eco-ink);
+}
+
+.ecocrew-dashboard-review__day-row,
+.ecocrew-dashboard-review__tile-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: .4rem;
+  margin-top: .7rem;
+}
+
+.ecocrew-dashboard-review__day {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  padding: .45rem .15rem;
+  border: 2px solid #cbd8d1;
+  border-radius: .75rem;
+  background: #f7f4ea;
+  color: #536862;
+  font-size: .63rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.ecocrew-dashboard-review__day-icon {
+  display: grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  margin-top: .25rem;
+  border: 1px solid currentcolor;
+  border-radius: 50%;
+  font-size: .8rem;
+  line-height: 1;
+}
+
+.ecocrew-dashboard-review__day.is-completed,
+.ecocrew-dashboard-review__tile.is-completed {
+  border-color: var(--eco-ink);
+  background: var(--eco-lime);
+  color: var(--eco-ink);
+}
+
+.ecocrew-dashboard-review__day.is-pending,
+.ecocrew-dashboard-review__tile.is-pending {
+  border-color: #b66f24;
+  background: #ffe0b2;
+  color: #7a4610;
+}
+
+.ecocrew-dashboard-review__day.is-available,
+.ecocrew-dashboard-review__tile.is-available {
+  border-color: var(--eco-moss);
+  color: var(--eco-moss);
+}
+
+.ecocrew-dashboard-review__day.is-missed,
+.ecocrew-dashboard-review__tile.is-missed {
+  background: #e7eee9;
+  color: #71847b;
+}
+
+.ecocrew-dashboard-review__day.is-upcoming,
+.ecocrew-dashboard-review__tile.is-upcoming {
+  opacity: .6;
+}
+
+.ecocrew-dashboard-review__day.is-today,
+.ecocrew-dashboard-review__tile.is-today {
+  outline: 3px solid #92bfdb;
+  outline-offset: 2px;
+}
+
+.ecocrew-dashboard-review__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .5rem;
+  margin-bottom: .75rem;
+}
+
+.ecocrew-dashboard-review__stats article {
+  min-width: 0;
+  padding: .8rem .65rem;
+  border-radius: .9rem;
+  background: white;
+}
+
+.ecocrew-dashboard-review__stats span,
+.ecocrew-dashboard-review__stats strong,
+.ecocrew-dashboard-review__stats small {
+  display: block;
+}
+
+.ecocrew-dashboard-review__stats span,
+.ecocrew-dashboard-review__stats small {
+  color: #536862;
+  font-size: .67rem;
+}
+
+.ecocrew-dashboard-review__stats strong {
+  margin: .15rem 0;
+  font-size: 1.1rem;
+}
+
+.ecocrew-dashboard-review__mission {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .6rem 1rem;
+  background: white;
+}
+
+.ecocrew-dashboard-review__mission h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.ecocrew-dashboard-review__mission > span {
+  color: #536862;
+  font-size: .72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ecocrew-dashboard-review__mission .ecocrew-progress,
+.ecocrew-dashboard-review__mission > strong {
+  grid-column: 1 / -1;
+}
+
+.ecocrew-dashboard-review__mission > strong {
+  font-size: .78rem;
+}
+
+.ecocrew-dashboard-review__mission--empty {
+  display: block;
+  background: #dceee0;
+}
+
+.ecocrew-dashboard-review__mission--empty h3 {
+  margin-bottom: .35rem;
+}
+
+.ecocrew-dashboard-review__mission--empty p:not(.ecocrew-kicker) {
+  margin-bottom: 0;
+  color: #536862;
+  font-size: .8rem;
+}
+
+.ecocrew-dashboard-review__streak--journey {
+  background: #f0dbff;
+}
+
+.ecocrew-dashboard-review__journey-score {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: .7rem;
+}
+
+.ecocrew-dashboard-review__flame {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border: 2px solid var(--eco-ink);
+  border-radius: 1rem;
+  background: var(--eco-lime);
+  font-size: 1.45rem;
+}
+
+.ecocrew-dashboard-review__journey-score p:not(.ecocrew-kicker) {
+  margin: .15rem 0 0;
+  color: #536862;
+  font-size: .75rem;
+}
+
+.ecocrew-dashboard-review__journey-best {
+  padding: .25rem .45rem;
+  border-radius: .5rem;
+  background: white;
+  color: var(--eco-moss);
+  font-size: .7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ecocrew-dashboard-review__journey {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  margin: 1.25rem 0 .6rem;
+  list-style: none;
+}
+
+.ecocrew-dashboard-review__journey-day {
+  position: relative;
+  z-index: 0;
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  gap: .3rem;
+  color: #536862;
+  font-size: .62rem;
+  font-weight: 800;
+}
+
+.ecocrew-dashboard-review__journey-day:not(:last-child)::after {
+  position: absolute;
+  z-index: -1;
+  top: 1.15rem;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: #b7c9bd;
+  content: '';
+}
+
+.ecocrew-dashboard-review__journey-node {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  place-items: center;
+  border: 2px solid #b7c9bd;
+  border-radius: 50%;
+  background: white;
+}
+
+.ecocrew-dashboard-review__journey-node .ecocrew-dashboard-review__day-icon {
+  margin: 0;
+}
+
+.ecocrew-dashboard-review__journey-day.is-completed .ecocrew-dashboard-review__journey-node {
+  border-color: var(--eco-ink);
+  background: var(--eco-lime);
+  color: var(--eco-ink);
+}
+
+.ecocrew-dashboard-review__journey-day.is-pending .ecocrew-dashboard-review__journey-node {
+  border-color: #b66f24;
+  background: #ffe0b2;
+  color: #7a4610;
+}
+
+.ecocrew-dashboard-review__journey-day.is-today {
+  color: var(--eco-ink);
+}
+
+.ecocrew-dashboard-review__journey-day.is-today .ecocrew-dashboard-review__journey-node {
+  outline: 3px solid #92bfdb;
+  outline-offset: 2px;
+}
+
+.ecocrew-dashboard-review__journey-count {
+  padding-top: .7rem;
+  margin: 0;
+  border-top: 1px solid #d2b8df;
+  color: #536862;
+  font-size: .75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ecocrew-dashboard-review__streak--tiles {
+  background: #fff7d6;
+}
+
+.ecocrew-dashboard-review__tiles-heading h3 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.ecocrew-dashboard-review__tiles-counter {
+  display: grid;
+  min-width: 4rem;
+  padding: .45rem;
+  border: 2px solid var(--eco-ink);
+  border-radius: .85rem;
+  background: var(--eco-lime);
+  text-align: center;
+}
+
+.ecocrew-dashboard-review__tiles-counter strong {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.ecocrew-dashboard-review__tiles-counter span {
+  margin-top: .2rem;
+  font-size: .58rem;
+  font-weight: 800;
+}
+
+.ecocrew-dashboard-review__tile {
+  display: grid;
+  min-width: 0;
+  min-height: 4.25rem;
+  place-items: center;
+  align-content: center;
+  gap: .25rem;
+  padding: .45rem .15rem;
+  border: 2px solid #cfbd68;
+  border-radius: .75rem;
+  background: #fffdf0;
+  color: #6d6339;
+  font-size: .63rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.ecocrew-dashboard-review__tile .ecocrew-dashboard-review__day-icon {
+  margin: 0;
+}
+
+.ecocrew-dashboard-review__tiles-footer {
+  padding-top: .8rem;
+  margin-top: .8rem;
+  border-top: 1px solid #e2d89d;
+  color: #6d6339;
+  font-size: .7rem;
+  font-weight: 800;
+}
+
+.ecocrew-dashboard-review__error {
+  padding: 1rem;
+  border: 2px solid #8a2f22;
+  border-radius: 1rem;
+  background: #ffe0d9;
+  color: #772a1b;
+  font-size: .8rem;
+}
+
+@media (width <= 520px) {
+  .ecocrew-dashboard-review__variant-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: .25rem;
+  }
+
+  .ecocrew-dashboard-review__variant-heading > span {
+    align-self: flex-start;
+  }
+}
+
+@media (width <= 390px) {
+  .ecocrew-dashboard-review__variant {
+    padding: .7rem;
+  }
+
+  .ecocrew-dashboard-review__task,
+  .ecocrew-dashboard-review__streak,
+  .ecocrew-dashboard-review__mission {
+    padding: .9rem;
+  }
+
+  .ecocrew-dashboard-review__day,
+  .ecocrew-dashboard-review__tile {
+    font-size: .56rem;
+  }
+
+  .ecocrew-dashboard-review__day-icon {
+    width: 1.15rem;
+    height: 1.15rem;
+    font-size: .7rem;
+  }
+
+  .ecocrew-dashboard-review__journey-node {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .ecocrew-dashboard-review__journey-day:not(:last-child)::after {
+    top: 1rem;
+  }
+}
+
 .ecocrew-demo-fixtures {
   padding: 1rem 0 .25rem;
 }

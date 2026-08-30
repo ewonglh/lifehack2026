@@ -26,6 +26,7 @@ import {
   unequipDemoCosmetic,
   getDemoState,
 } from '../features/ecocrew/scan-service.js';
+import { getWeekDays, getWeekRange } from '../utils/dates.js';
 
 function normalizeProfile(value = {}) {
   value = value || {};
@@ -147,6 +148,72 @@ function mockProfile() {
   return normalizeProfile(stored || getDemoProfile());
 }
 
+function hasActiveStreak(taskDay, lastCompletedDay) {
+  if (!taskDay || !lastCompletedDay) return false;
+  const days = getWeekDays(taskDay);
+  const todayIndex = days.findIndex((day) => day.date === taskDay);
+  const completedIndex = days.findIndex((day) => day.date === lastCompletedDay);
+  if (todayIndex < 0 || completedIndex < 0) {
+    const taskDate = new Date(taskDay + 'T00:00:00Z');
+    const completedDate = new Date(lastCompletedDay + 'T00:00:00Z');
+    return (
+      !Number.isNaN(taskDate.getTime()) &&
+      !Number.isNaN(completedDate.getTime()) &&
+      (taskDate.getTime() - completedDate.getTime()) / 86400000 <= 1
+    );
+  }
+  return completedIndex === todayIndex || completedIndex === todayIndex - 1;
+}
+
+function buildWeekProgress(taskDay, submissions = []) {
+  const days = getWeekDays(taskDay);
+  const completedDays = new Set(
+    submissions
+      .filter((submission) => submission.verification_status === 'verified')
+      .map((submission) => submission.task_day),
+  );
+  const pendingDays = new Set(
+    submissions
+      .filter((submission) => submission.behavior_status === 'pending')
+      .map((submission) => submission.task_day),
+  );
+
+  const progressDays = days.map((day) => ({
+    ...day,
+    status: completedDays.has(day.date)
+      ? 'completed'
+      : day.isToday && pendingDays.has(day.date)
+        ? 'pending'
+        : day.isToday
+          ? 'available'
+          : day.date < taskDay
+            ? 'missed'
+            : 'upcoming',
+  }));
+
+  return {
+    weekStart: progressDays[0]?.date || null,
+    weekEnd: progressDays[progressDays.length - 1]?.date || null,
+    completedCount: progressDays.filter((day) => day.status === 'completed').length,
+    days: progressDays,
+  };
+}
+
+function demoDashboardSubmissions(state) {
+  const results = Object.values(state.submissionResults || {});
+  if (
+    state.lastResult &&
+    !results.some((result) => result.submissionId === state.lastResult.submissionId)
+  ) {
+    results.push(state.lastResult);
+  }
+  return results.map((result) => ({
+    task_day: result.taskDay,
+    verification_status: result.outcome === 'completed' ? 'verified' : 'failed',
+    behavior_status: result.behaviorCheckIn?.status,
+  }));
+}
+
 export const ecoCrewService = {
   async getProfile(userId) {
     if (useMockData) return mockProfile();
@@ -195,6 +262,11 @@ export const ecoCrewService = {
     if (useMockData) {
       const state = getDemoState();
       const task = getDailyTask();
+      const lastCompletedDay = state.personalStreak?.lastCompletedDay || null;
+      const currentStreak = hasActiveStreak(task.taskDay, lastCompletedDay)
+        ? Number(state.personalStreak?.current ?? 0)
+        : 0;
+      const weekProgress = buildWeekProgress(task.taskDay, demoDashboardSubmissions(state));
       return {
         task,
         crew: getDemoCrewOverview(),
@@ -202,9 +274,11 @@ export const ecoCrewService = {
         dailyPoints: state.dailyPoints,
         lifetimePoints: state.lifetimePoints,
         personalStreak: {
-          current: Number(state.personalStreak?.current ?? 0),
+          current: currentStreak,
           longest: Number(state.personalStreak?.longest ?? 0),
+          lastCompletedDay,
         },
+        weekProgress,
         weeklyPoints: state.crewMembership ? state.weeklyPoints : null,
         todayActionStatus: state.pendingSubmissionId
           ? 'pending'
@@ -237,7 +311,8 @@ export const ecoCrewService = {
           'id, task_day, verification_status, behavior_status, behavior_confirmed_at, points, submitted_at',
         )
         .eq('profile_id', userId)
-        .eq('task_day', task.taskDay)
+        .gte('task_day', getWeekRange(task.taskDay)?.start || task.taskDay)
+        .lte('task_day', getWeekRange(task.taskDay)?.end || task.taskDay)
         .order('submitted_at', { ascending: false }),
       supabase
         .from('profile_progress')
@@ -246,7 +321,7 @@ export const ecoCrewService = {
         .maybeSingle(),
       supabase
         .from('user_streaks')
-        .select('current_streak, longest_streak')
+        .select('current_streak, longest_streak, last_completed_day')
         .eq('profile_id', userId)
         .maybeSingle(),
     ]);
@@ -254,12 +329,20 @@ export const ecoCrewService = {
     if (progressError) throw progressError;
     if (streakError) throw streakError;
     const submissions = submissionRows || [];
+    const lastCompletedDay = personalStreak?.last_completed_day || null;
     const verified = submissions.find(
-      (submission) => submission.verification_status === 'verified',
+      (submission) =>
+        submission.task_day === task.taskDay && submission.verification_status === 'verified',
     );
-    const pending = submissions.find((submission) => submission.behavior_status === 'pending');
+    const pending = submissions.find(
+      (submission) =>
+        submission.task_day === task.taskDay && submission.behavior_status === 'pending',
+    );
     const dailyPoints = submissions
-      .filter((submission) => submission.verification_status === 'verified')
+      .filter(
+        (submission) =>
+          submission.task_day === task.taskDay && submission.verification_status === 'verified',
+      )
       .reduce((sum, submission) => sum + Number(submission.points || 0), 0);
     return {
       task,
@@ -268,9 +351,13 @@ export const ecoCrewService = {
       dailyPoints,
       lifetimePoints: Number(profileProgress?.lifetime_xp || 0),
       personalStreak: {
-        current: Number(personalStreak?.current_streak || 0),
+        current: hasActiveStreak(task.taskDay, lastCompletedDay)
+          ? Number(personalStreak?.current_streak || 0)
+          : 0,
         longest: Number(personalStreak?.longest_streak || 0),
+        lastCompletedDay,
       },
+      weekProgress: buildWeekProgress(task.taskDay, submissions),
       weeklyPoints: crew.membership ? Number(crew.weeklyPoints || league.league?.score || 0) : null,
       todaySubmitted: Boolean(verified),
       todayActionStatus: verified ? 'completed' : pending ? 'pending' : 'available',

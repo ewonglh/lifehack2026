@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatTaskDate, getDayOfYear, getDaysInYear } from '../../src/utils/dates.js';
+import {
+  formatTaskDate,
+  getDayOfYear,
+  getDaysInYear,
+  getWeekDays,
+  getWeekRange,
+} from '../../src/utils/dates.js';
 
 describe('task date helpers', () => {
   it('calculates ordinal days without using the browser timezone', () => {
@@ -22,5 +28,22 @@ describe('task date helpers', () => {
     expect(getDayOfYear('not-a-date')).toBeNull();
     expect(getDaysInYear('2026-02-30')).toBeNull();
     expect(formatTaskDate('')).toBe('');
+  });
+
+  it('builds a Monday-to-Sunday week without using the browser timezone', () => {
+    expect(getWeekDays('2026-08-30')).toEqual([
+      { date: '2026-08-24', shortLabel: 'Mon', longLabel: 'Monday', isToday: false },
+      { date: '2026-08-25', shortLabel: 'Tue', longLabel: 'Tuesday', isToday: false },
+      { date: '2026-08-26', shortLabel: 'Wed', longLabel: 'Wednesday', isToday: false },
+      { date: '2026-08-27', shortLabel: 'Thu', longLabel: 'Thursday', isToday: false },
+      { date: '2026-08-28', shortLabel: 'Fri', longLabel: 'Friday', isToday: false },
+      { date: '2026-08-29', shortLabel: 'Sat', longLabel: 'Saturday', isToday: false },
+      { date: '2026-08-30', shortLabel: 'Sun', longLabel: 'Sunday', isToday: true },
+    ]);
+    expect(getWeekRange('2026-08-24')).toEqual({ start: '2026-08-24', end: '2026-08-30' });
+  });
+
+  it('handles a week that crosses a year boundary', () => {
+    expect(getWeekRange('2027-01-01')).toEqual({ start: '2026-12-28', end: '2027-01-03' });
   });
 });

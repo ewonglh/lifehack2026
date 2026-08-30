@@ -18,7 +18,7 @@ describe('route guard', () => {
 });
 
 describe('competition routes', () => {
-  it.each(['/dashboard', '/sort', '/result', '/crew', '/league'])(
+  it.each(['/dashboard', '/dashboard/variants', '/sort', '/result', '/crew', '/league'])(
     'registers %s as private',
     (path) => {
       expect(routes.find((route) => route.path === path)?.access).toBe('private');

@@ -6,16 +6,17 @@ import {
 
 type JsonObject = Record<string, unknown>;
 
-type OpenRouterResponse = {
+type OpenAIResponse = {
   model?: string;
-  choices?: Array<{
-    message?: {
-      content?: unknown;
-      refusal?: unknown;
-    };
+  output?: Array<{
+    type?: unknown;
+    content?: unknown;
   }>;
   error?: {
     message?: unknown;
+  };
+  incomplete_details?: {
+    reason?: unknown;
   };
 };
 
@@ -41,8 +42,6 @@ const classificationSchema = {
     },
     confidence: {
       type: 'number',
-      minimum: 0,
-      maximum: 1,
       description: 'Confidence in the item and disposal classification.',
     },
     localeRuleVersion: {
@@ -59,8 +58,6 @@ const classificationSchema = {
     },
     promptSimilarity: {
       type: 'number',
-      minimum: 0,
-      maximum: 1,
       description: 'How closely the image matches the supplied task prompt.',
     },
     taskSatisfied: {
@@ -86,8 +83,6 @@ const classificationSchema = {
     },
     taskConfidence: {
       type: 'number',
-      minimum: 0,
-      maximum: 1,
       description: 'Confidence in the task-match decision.',
     },
     taskReason: {
@@ -131,37 +126,33 @@ function asObject(value: unknown): JsonObject | null {
     : null;
 }
 
-function extractAssistantText(payload: OpenRouterResponse): string {
-  const message = payload.choices?.[0]?.message;
-  if (!message) {
-    const providerError = asObject(payload.error);
-    const providerMessage = providerError?.message;
-    if (typeof providerMessage === 'string') {
-      throw new Error(`OpenRouter did not return a completion: ${providerMessage}`);
+function extractOutputText(payload: OpenAIResponse): string {
+  const providerError = asObject(payload.error);
+  const providerMessage = providerError?.message;
+  if (typeof providerMessage === 'string') {
+    throw new Error(`OpenAI did not return a response: ${providerMessage}`);
+  }
+
+  for (const outputItem of payload.output ?? []) {
+    if (!Array.isArray(outputItem.content)) continue;
+
+    for (const part of outputItem.content) {
+      const object = asObject(part);
+      if (object?.type === 'refusal' && typeof object.refusal === 'string') {
+        throw new Error(`Model refused the image: ${object.refusal}`);
+      }
+      if (object?.type === 'output_text' && typeof object.text === 'string') {
+        return object.text;
+      }
     }
-    throw new Error('OpenRouter response did not contain a choice message.');
   }
 
-  if (typeof message.refusal === 'string' && message.refusal.length > 0) {
-    throw new Error(`Model refused the image: ${message.refusal}`);
+  const incompleteReason = payload.incomplete_details?.reason;
+  if (typeof incompleteReason === 'string') {
+    throw new Error(`OpenAI response was incomplete: ${incompleteReason}`);
   }
 
-  if (typeof message.content === 'string') return message.content;
-
-  // Some OpenAI-compatible providers return content as an array of parts.
-  if (Array.isArray(message.content)) {
-    const text = message.content
-      .map((part) => {
-        const object = asObject(part);
-        return typeof object?.text === 'string' ? object.text : '';
-      })
-      .join('')
-      .trim();
-
-    if (text.length > 0) return text;
-  }
-
-  throw new Error('OpenRouter response did not contain message content.');
+  throw new Error('OpenAI response did not contain output text.');
 }
 
 function parseJsonContent(content: string): unknown {
@@ -175,7 +166,7 @@ function parseJsonContent(content: string): unknown {
     return JSON.parse(unfenced);
   } catch (error) {
     throw new Error(
-      `OpenRouter returned invalid JSON: ${error instanceof Error ? error.message : 'parse error'}`,
+      `OpenAI returned invalid JSON: ${error instanceof Error ? error.message : 'parse error'}`,
     );
   }
 }
@@ -194,77 +185,64 @@ function buildTaskPrompt(input: PhotoInput): string {
   ].join('. ');
 }
 
-export async function analyzeWithOpenRouter(input: PhotoInput): Promise<ClassificationResult> {
-  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY is not configured.');
+export async function analyzeWithOpenAI(input: PhotoInput): Promise<ClassificationResult> {
+  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!apiKey) throw new Error('OPENAI_API_KEY is not configured.');
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-  };
-
-  const siteUrl = Deno.env.get('OPENROUTER_SITE_URL');
-  if (siteUrl) headers['HTTP-Referer'] = siteUrl;
-
-  const appTitle = Deno.env.get('OPENROUTER_APP_TITLE');
-  if (appTitle) headers['X-OpenRouter-Title'] = appTitle;
-
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const model = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini';
+  const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
-    headers,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
-      model: Deno.env.get('OPENROUTER_MODEL') ?? 'openrouter/free',
-      provider: { require_parameters: true },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Classify one household item for disposal and validate it against the supplied task. Evaluate the object, material, preparation state, and recycling context. Be strict: taskSatisfied and matchesTask are true only when every required part is visible. Use unknown and low_confidence when the image or local rule is unclear. Return only valid JSON without Markdown fences.',
-        },
+      model,
+      store: false,
+      instructions:
+        'Classify one household item for disposal and validate it against the supplied task. Evaluate the object, material, preparation state, and recycling context. Be strict: taskSatisfied and matchesTask are true only when every required part is visible. Use unknown and low_confidence when the image or local rule is unclear.',
+      input: [
         {
           role: 'user',
           content: [
-            { type: 'text', text: buildTaskPrompt(input) },
+            { type: 'input_text', text: buildTaskPrompt(input) },
             {
-              type: 'image_url',
-              image_url: {
-                url: `data:${input.contentType};base64,${encodeBase64(input.bytes)}`,
-              },
+              type: 'input_image',
+              image_url: `data:${input.contentType};base64,${encodeBase64(input.bytes)}`,
+              detail: 'high',
             },
           ],
         },
       ],
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
+      text: {
+        format: {
+          type: 'json_schema',
           name: 'ecocrew_classification',
           strict: true,
           schema: classificationSchema,
         },
       },
-      stream: false,
     }),
   });
 
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(`OpenRouter returned ${response.status}: ${message.slice(0, 500)}`);
+    throw new Error(`OpenAI returned ${response.status}: ${message.slice(0, 500)}`);
   }
 
-  const payload = (await response.json()) as OpenRouterResponse;
-  const content = extractAssistantText(payload);
+  const payload = (await response.json()) as OpenAIResponse;
+  const content = extractOutputText(payload);
   try {
     const result = validateClassification(parseJsonContent(content));
-    console.info('OpenRouter photo analysis completed.', {
-      requestedModel: Deno.env.get('OPENROUTER_MODEL') ?? 'openrouter/free',
+    console.info('OpenAI photo analysis completed.', {
+      requestedModel: model,
       selectedModel: payload.model ?? null,
     });
     return result;
   } catch (error) {
-    const selectedModel = payload.model ?? 'unknown';
     const reason = error instanceof Error ? error.message : 'validation error';
     throw new Error(
-      `OpenRouter model ${selectedModel} returned an invalid classification: ${reason}`,
+      `OpenAI model ${payload.model ?? model} returned an invalid classification: ${reason}`,
     );
   }
 }

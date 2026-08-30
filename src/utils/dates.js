@@ -18,6 +18,41 @@ function parseCalendarDate(value) {
   return date;
 }
 
+const weekDayNames = [
+  { shortLabel: 'Mon', longLabel: 'Monday' },
+  { shortLabel: 'Tue', longLabel: 'Tuesday' },
+  { shortLabel: 'Wed', longLabel: 'Wednesday' },
+  { shortLabel: 'Thu', longLabel: 'Thursday' },
+  { shortLabel: 'Fri', longLabel: 'Friday' },
+  { shortLabel: 'Sat', longLabel: 'Saturday' },
+  { shortLabel: 'Sun', longLabel: 'Sunday' },
+];
+
+export function getWeekDays(taskDay) {
+  const date = parseCalendarDate(taskDay);
+  if (!date) return [];
+
+  const mondayOffset = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - mondayOffset);
+
+  return weekDayNames.map((labels, index) => {
+    const day = new Date(date);
+    day.setUTCDate(date.getUTCDate() + index);
+    const dateValue = day.toISOString().slice(0, 10);
+    return {
+      date: dateValue,
+      ...labels,
+      isToday: dateValue === String(taskDay ?? ''),
+    };
+  });
+}
+
+export function getWeekRange(taskDay) {
+  const days = getWeekDays(taskDay);
+  if (!days.length) return null;
+  return { start: days[0].date, end: days[days.length - 1].date };
+}
+
 export function getDaysInYear(taskDay) {
   const date = parseCalendarDate(taskDay);
   if (!date) return null;

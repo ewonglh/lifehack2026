@@ -1,5 +1,5 @@
 import type { DisposalBin } from './validation.ts';
-import { analyzeWithOpenRouter } from './openai-analyzer.ts';
+import { analyzeWithOpenAI } from './openai-analyzer.ts';
 
 export type ClassificationResult = {
   itemName: string;
@@ -150,7 +150,7 @@ export async function analyzePhoto(input: PhotoInput): Promise<ClassificationRes
     };
   }
 
-  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+  const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
     return aiFailureClassification(
       input,
@@ -159,7 +159,7 @@ export async function analyzePhoto(input: PhotoInput): Promise<ClassificationRes
   }
 
   try {
-    return await analyzeWithOpenRouter(input);
+    return await analyzeWithOpenAI(input);
   } catch (error) {
     console.warn('Live photo analysis failed.', error);
     return aiFailureClassification(
