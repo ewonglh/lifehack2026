@@ -4,6 +4,7 @@ import {
   appShell,
   escapeHtml,
   navigate as defaultNavigate,
+  syncCurrentProfileAvatar,
 } from '../features/ecocrew/page-utils.js';
 import { cosmeticVisual } from '../components/cosmetic-visual.js';
 import { getCosmeticAsset, getProfileFrameId } from '../features/ecocrew/cosmetic-assets.js';
@@ -14,18 +15,23 @@ function postTime(dateString) {
   return minutes < 1 ? 'Just now' : minutes < 60 ? minutes + ' min ago' : 'Today';
 }
 
+function activeFrameId(cosmetics = []) {
+  return cosmetics.find((item) => item.kind === 'frame' && item.equipped)?.id || null;
+}
+
 function profileContent(data) {
   const profile = data.profile || {};
   const posts = data.posts || [];
   const cosmetics = data.cosmetics || [];
+  const profileFrameId = getProfileFrameId(profile);
   const frame =
-    cosmetics.find((item) => item.kind === 'frame' && item.id === getProfileFrameId(profile)) ||
-    cosmetics.find((item) => item.kind === 'frame' && item.equipped);
+    cosmetics.find(
+      (item) => item.kind === 'frame' && item.equipped && item.id === profileFrameId,
+    ) || cosmetics.find((item) => item.kind === 'frame' && item.equipped);
   const equipped = frame ||
-    cosmetics.find((item) => item.unlocked) || { name: 'EcoCrew look', icon: '🌱' };
-  const frameAsset = getCosmeticAsset(frame?.id || getProfileFrameId(profile));
-  const accessory =
-    cosmetics.find((item) => item.kind === 'badge' && item.equipped) || (!frame ? equipped : null);
+    cosmetics.find((item) => item.equipped) || { name: 'EcoCrew look', icon: '🌱' };
+  const frameAsset = getCosmeticAsset(frame?.id);
+  const accessory = cosmetics.find((item) => item.kind === 'badge' && item.equipped);
   const name = profile.displayName || 'EcoCrew member';
   return (
     '<div data-profile-content><section class="ecocrew-profile-hero"><div class="ecocrew-profile-avatar" aria-label="' +
@@ -74,11 +80,14 @@ function profileContent(data) {
         (item) =>
           '<button type="button" data-equip-cosmetic="' +
           escapeHtml(item.id) +
+          '" data-cosmetic-action="' +
+          (item.equipped ? 'unequip' : 'equip') +
           '" title="' +
-          escapeHtml(item.name) +
+          escapeHtml((item.equipped ? 'Unequip ' : 'Equip ') + item.name) +
           '" class="' +
           (item.equipped ? 'is-equipped' : '') +
-          '" aria-label="Equip ' +
+          '" aria-label="' +
+          (item.equipped ? 'Unequip ' : 'Equip ') +
           escapeHtml(item.name + (item.equipped ? ', equipped' : '')) +
           '" aria-pressed="' +
           (item.equipped ? 'true' : 'false') +
@@ -143,6 +152,12 @@ export function renderProfilePage({ session, sessionState, navigate = defaultNav
     target.innerHTML = loadingState('Loading your profile');
     try {
       latestData = await ecoCrewService.getProfileData(userId);
+      const refreshedProfile = {
+        ...latestData.profile,
+        frameId: activeFrameId(latestData.cosmetics),
+      };
+      syncCurrentProfileAvatar(refreshedProfile);
+      session?.syncProfileCosmetics?.(refreshedProfile);
       target.outerHTML = profileContent(latestData);
       const loadedTarget = page.querySelector('[data-profile-content]');
       loadedTarget.setAttribute('aria-busy', 'false');
@@ -161,7 +176,11 @@ export function renderProfilePage({ session, sessionState, navigate = defaultNav
       button.addEventListener('click', async () => {
         button.disabled = true;
         try {
-          await ecoCrewService.equipCosmetic(button.dataset.equipCosmetic);
+          const mutate =
+            button.dataset.cosmeticAction === 'unequip'
+              ? ecoCrewService.unequipCosmetic
+              : ecoCrewService.equipCosmetic;
+          await mutate(button.dataset.equipCosmetic);
           await loadProfile();
         } catch (exception) {
           button.disabled = false;

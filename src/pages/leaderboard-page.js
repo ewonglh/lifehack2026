@@ -6,6 +6,7 @@ import {
   appShell,
   escapeHtml,
   navigate as defaultNavigate,
+  syncCurrentProfileAvatar,
 } from '../features/ecocrew/page-utils.js';
 
 function rankings(rows) {
@@ -34,10 +35,13 @@ function collection(items) {
   if (!items.length)
     return '<p class="ecocrew-muted">Cosmetics will appear here as your crew progresses.</p>';
   return items
-    .map(
-      (item) =>
+    .map((item) => {
+      const action = item.equipped ? 'unequip' : 'equip';
+      const actionLabel = item.equipped ? 'Unequip' : 'Equip';
+      return (
         '<article class="ecocrew-cosmetic ' +
         (item.unlocked ? '' : 'is-locked') +
+        (item.equipped ? ' is-equipped' : '') +
         '"><span aria-hidden="true">' +
         cosmeticVisual(item, 'ecocrew-cosmetic-visual') +
         '</span><strong>' +
@@ -49,13 +53,22 @@ function collection(items) {
             ? 'Ready to equip'
             : escapeHtml(item.progress || 'Keep contributing')) +
         '</small>' +
-        (item.unlocked && !item.equipped
+        (item.unlocked
           ? '<button class="btn btn-sm ecocrew-btn-secondary" type="button" data-equip="' +
             escapeHtml(item.id) +
-            '">Equip</button>'
+            '" data-cosmetic-action="' +
+            action +
+            '" aria-label="' +
+            actionLabel +
+            ' ' +
+            escapeHtml(item.name || 'Eco cosmetic') +
+            '">' +
+            actionLabel +
+            '</button>'
           : '') +
-        '</article>',
-    )
+        '</article>'
+      );
+    })
     .join('');
 }
 
@@ -65,7 +78,7 @@ function leagueEligibility(overview = {}) {
   return overview.rows?.some((row) => row.trend === 'you') ? 'ranked' : 'unranked';
 }
 
-export function renderLeaderboardPage({ navigate = defaultNavigate } = {}) {
+export function renderLeaderboardPage({ navigate = defaultNavigate, session } = {}) {
   const page = appShell(
     'Sprout League',
     'This week',
@@ -245,7 +258,7 @@ export function renderLeaderboardPage({ navigate = defaultNavigate } = {}) {
     }
   });
 
-  async function renderCosmetics() {
+  async function renderCosmetics({ syncFrame = false, actionItem = null } = {}) {
     const target = page.querySelector('[data-cosmetics]');
     target.setAttribute('aria-busy', 'true');
     target.innerHTML = loadingState('Loading collection');
@@ -253,12 +266,27 @@ export function renderLeaderboardPage({ navigate = defaultNavigate } = {}) {
       const cosmetics = await ecoCrewService.getCosmetics();
       target.innerHTML = collection(cosmetics || []);
       target.setAttribute('aria-busy', 'false');
+      const activeFrame = (cosmetics || []).find((item) => item.kind === 'frame' && item.equipped);
+      if (syncFrame || activeFrame) {
+        const frameId =
+          activeFrame?.id ||
+          (actionItem?.kind === 'frame' ? null : document.body.dataset.ecocrewFrameId);
+        syncCurrentProfileAvatar({ frameId });
+        session?.syncProfileCosmetics?.({ frameId });
+      }
       page.querySelectorAll('[data-equip]').forEach((button) =>
         button.addEventListener('click', async () => {
           button.disabled = true;
           try {
-            await ecoCrewService.equipCosmetic(button.dataset.equip);
-            button.textContent = 'Equipped';
+            const item = (cosmetics || []).find(
+              (candidate) => candidate.id === button.dataset.equip,
+            );
+            const mutate =
+              button.dataset.cosmeticAction === 'unequip'
+                ? ecoCrewService.unequipCosmetic
+                : ecoCrewService.equipCosmetic;
+            await mutate(button.dataset.equip);
+            await renderCosmetics({ syncFrame: true, actionItem: item });
           } catch (exception) {
             button.disabled = false;
             button.textContent = exception.message || 'Try again';

@@ -25,6 +25,7 @@ describe('today’s action photo flow', () => {
     getDailyTask.mockResolvedValue(task);
     getLastResult.mockReset();
     submitTask.mockReset();
+    window.fetch = vi.fn();
     window.URL.createObjectURL = vi.fn().mockReturnValue('blob:demo');
     window.URL.revokeObjectURL = vi.fn();
   });
@@ -78,6 +79,120 @@ describe('today’s action photo flow', () => {
       'Complete today’s assigned action.',
     );
     expect(rendered.element.querySelector('[data-task-guidance]')).toBeNull();
+  });
+
+  it('renders the supplied image fixtures without an unrelated-item option', async () => {
+    getLastResult.mockReturnValue(null);
+    const rendered = renderSubmitPage();
+
+    await rendered.afterRender();
+
+    const fixtures = [...rendered.element.querySelectorAll('[data-fixture]')];
+    expect(fixtures).toHaveLength(2);
+    expect(fixtures.map((fixture) => fixture.dataset.fixture)).toEqual([
+      'liquid_bottle',
+      'empty_bottle',
+    ]);
+    expect(fixtures[0].querySelector('img').getAttribute('src')).toContain('bottle-with-water.jpg');
+    expect(fixtures[1].querySelector('img').getAttribute('src')).toContain(
+      'person-throws-plastic-bottle',
+    );
+    expect(rendered.element.textContent).not.toContain('Unrelated item');
+    expect(rendered.element.querySelectorAll('svg')).toHaveLength(0);
+    expect(fixtures.every((fixture) => fixture.getAttribute('aria-pressed') === 'false')).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ['liquid_bottle', 'bottle-with-water', 'bottle-with-water.jpg'],
+    ['empty_bottle', 'person-throws-plastic-bottle', 'person-throws-plastic-bottle.jpg'],
+  ])(
+    'selects and submits the %s image fixture as a JPEG file',
+    async (fixtureId, assetName, fileName) => {
+      getLastResult.mockReturnValue(null);
+      submitTask.mockResolvedValue({ submissionId: 'submission-fixture' });
+      window.fetch.mockResolvedValue({
+        ok: true,
+        blob: async () => new window.Blob(['demo jpeg'], { type: 'image/jpeg' }),
+      });
+      const navigate = vi.fn();
+      const rendered = renderSubmitPage({ navigate });
+      await rendered.afterRender();
+
+      const fixture = rendered.element.querySelector(`[data-fixture="${fixtureId}"]`);
+      const otherFixture = rendered.element.querySelector(
+        `[data-fixture="${fixtureId === 'liquid_bottle' ? 'empty_bottle' : 'liquid_bottle'}"]`,
+      );
+      fixture.click();
+
+      await vi.waitFor(() =>
+        expect(window.fetch).toHaveBeenCalledWith(expect.stringContaining(assetName)),
+      );
+      await vi.waitFor(() => expect(fixture.getAttribute('aria-pressed')).toBe('true'));
+      expect(otherFixture.getAttribute('aria-pressed')).toBe('false');
+      expect(fixture.classList.contains('is-selected')).toBe(true);
+      expect(rendered.element.querySelector('.ecocrew-preview').getAttribute('src')).toBe(
+        'blob:demo',
+      );
+
+      rendered.element.querySelector('[data-check-action]').click();
+
+      await vi.waitFor(() => expect(submitTask).toHaveBeenCalled());
+      expect(submitTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          demoFixture: fixtureId,
+          file: expect.any(globalThis.File),
+        }),
+      );
+      const uploadedFile = submitTask.mock.calls[0][0].file;
+      expect(uploadedFile.name).toBe(fileName);
+      expect(uploadedFile.type).toBe('image/jpeg');
+      expect(navigate).toHaveBeenCalledWith('/result/submission-fixture');
+    },
+  );
+
+  it('clears the selected demo fixture when a manual upload is chosen', async () => {
+    getLastResult.mockReturnValue(null);
+    window.fetch.mockResolvedValue({
+      ok: true,
+      blob: async () => new window.Blob(['demo jpeg'], { type: 'image/jpeg' }),
+    });
+    const rendered = renderSubmitPage();
+    await rendered.afterRender();
+
+    const demoFixture = rendered.element.querySelector('[data-fixture="empty_bottle"]');
+    demoFixture.click();
+    await vi.waitFor(() => expect(demoFixture.getAttribute('aria-pressed')).toBe('true'));
+
+    const photo = rendered.element.querySelector('#item-photo');
+    Object.defineProperty(photo, 'files', {
+      configurable: true,
+      value: [new globalThis.File(['manual image'], 'manual.jpg', { type: 'image/jpeg' })],
+    });
+    photo.dispatchEvent(new window.Event('change', { bubbles: true }));
+
+    expect(demoFixture.getAttribute('aria-pressed')).toBe('false');
+    expect(demoFixture.classList.contains('is-selected')).toBe(false);
+  });
+
+  it('shows an error when a demo image cannot be loaded', async () => {
+    getLastResult.mockReturnValue(null);
+    window.fetch.mockRejectedValue(new Error('Asset unavailable.'));
+    const rendered = renderSubmitPage();
+    await rendered.afterRender();
+
+    const fixture = rendered.element.querySelector('[data-fixture="empty_bottle"]');
+    fixture.click();
+
+    await vi.waitFor(() =>
+      expect(rendered.element.querySelector('[data-submit-error]').hidden).toBe(false),
+    );
+    expect(rendered.element.querySelector('[data-submit-error]').textContent).toContain(
+      'Asset unavailable.',
+    );
+    expect(submitTask).not.toHaveBeenCalled();
+    expect(fixture.disabled).toBe(false);
   });
 
   it('shows an unavailable-task error in the task fields when loading fails', async () => {

@@ -53,4 +53,25 @@ export const session = {
     emit();
     return state.profile;
   },
+  syncProfileCosmetics(values = {}) {
+    if (!state.profile) return null;
+    const hasFrameId = Object.prototype.hasOwnProperty.call(values, 'frameId');
+    const hasSnakeFrameId = Object.prototype.hasOwnProperty.call(values, 'frame_id');
+    const hasAvatarId = Object.prototype.hasOwnProperty.call(values, 'avatarId');
+    const hasSnakeAvatarId = Object.prototype.hasOwnProperty.call(values, 'avatar_id');
+    const frameId = hasFrameId ? values.frameId : values.frame_id;
+    const avatarId = hasAvatarId ? values.avatarId : values.avatar_id;
+    const profile = { ...state.profile };
+    if (hasFrameId || hasSnakeFrameId) {
+      profile.frameId = frameId;
+      profile.frame_id = frameId;
+    }
+    if (hasAvatarId || hasSnakeAvatarId) {
+      profile.avatarId = avatarId;
+      profile.avatar_id = avatarId;
+    }
+    state = { ...state, profile };
+    emit();
+    return state.profile;
+  },
 };

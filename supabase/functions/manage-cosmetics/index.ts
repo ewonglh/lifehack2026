@@ -77,7 +77,11 @@ Deno.serve(async (request: Request) => {
         equippedIds = new Set((equipped ?? []).map((item) => item.cosmetic_id));
       }
       for (const item of cosmetics.values()) {
-        if (equippedIds.has(item.cosmetic_id as string)) item.crewEquipped = true;
+        const personalEquipped = Boolean(item.equipped);
+        const crewEquipped = equippedIds.has(item.cosmetic_id as string);
+        if (crewEquipped) item.crewEquipped = true;
+        item.equipped = personalEquipped || crewEquipped;
+        item.equippedScope = personalEquipped ? 'personal' : crewEquipped ? 'crew' : null;
       }
       const { data: progress, error: progressError } = await context.admin
         .from('profile_progress')
@@ -164,6 +168,22 @@ Deno.serve(async (request: Request) => {
           cause: error,
         });
       return jsonResponse({ squadId: membership.squad_id, equipped: cosmeticId, scope: 'crew' });
+    }
+    if (action === 'unequip') {
+      const cosmeticId = requireString(body, 'cosmeticId', 2, 80);
+      const { error } = await context.admin.rpc('unequip_cosmetic_for_actor', {
+        p_actor_id: context.user.id,
+        p_cosmetic_id: cosmeticId,
+      });
+      if (error)
+        throw new ApiError(400, 'COSMETIC_NOT_OWNED', 'That cosmetic is not available to you.', {
+          cause: error,
+        });
+      return jsonResponse({
+        squadId: membership?.squad_id ?? null,
+        unequipped: cosmeticId,
+        scope: 'all',
+      });
     }
     throw new ApiError(400, 'INVALID_REQUEST', 'Unsupported cosmetics action.');
   } catch (error) {

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const getLeagueOverview = vi.hoisted(() => vi.fn());
 const getCosmetics = vi.hoisted(() => vi.fn());
 const equipCosmetic = vi.hoisted(() => vi.fn());
+const unequipCosmetic = vi.hoisted(() => vi.fn());
 const queueForLeague = vi.hoisted(() => vi.fn());
 const cancelLeagueQueue = vi.hoisted(() => vi.fn());
 const showModal = vi.hoisted(() => vi.fn());
@@ -14,6 +15,7 @@ vi.mock('../../src/services/ecocrew-service.js', () => ({
     getLeagueOverview,
     getCosmetics,
     equipCosmetic,
+    unequipCosmetic,
     queueForLeague,
     cancelLeagueQueue,
   },
@@ -32,6 +34,7 @@ describe('league page states', () => {
     getLeagueOverview.mockReset();
     getCosmetics.mockResolvedValue([]);
     equipCosmetic.mockResolvedValue(null);
+    unequipCosmetic.mockReset().mockResolvedValue(null);
     queueForLeague.mockReset();
     cancelLeagueQueue.mockReset();
     showModal.mockReset();
@@ -213,6 +216,55 @@ describe('league page states', () => {
     expect(rendered.element.querySelector('[data-cosmetics] [data-loading-state]')).toBeNull();
     expect(rendered.element.querySelector('[data-cosmetics]').getAttribute('aria-busy')).toBe(
       'false',
+    );
+  });
+
+  it('renders the leaf frame and refreshes its equip state', async () => {
+    const inactive = [
+      { id: 'leaf-frame', name: 'Leaf Frame', kind: 'frame', unlocked: true, equipped: false },
+      { id: 'mushroom-frame', name: 'Mushroom Frame', kind: 'frame', unlocked: false },
+    ];
+    const active = inactive.map((item) =>
+      item.id === 'leaf-frame' ? { ...item, equipped: true } : item,
+    );
+    getLeagueOverview.mockResolvedValue({ eligibility: 'ranked', rows: [], weeklyPoints: 0 });
+    getCosmetics.mockReset().mockResolvedValueOnce(inactive).mockResolvedValueOnce(active);
+    equipCosmetic.mockResolvedValue({ id: 'leaf-frame', equipped: true });
+    const rendered = renderLeaderboardPage();
+
+    await rendered.afterRender();
+
+    const leafCard = rendered.element.querySelector('[data-equip="leaf-frame"]');
+    expect(rendered.element.querySelector('[data-cosmetics] img')).not.toBeNull();
+    expect(leafCard.textContent).toBe('Equip');
+    leafCard.click();
+
+    await vi.waitFor(() => expect(equipCosmetic).toHaveBeenCalledWith('leaf-frame'));
+    await vi.waitFor(() =>
+      expect(rendered.element.querySelector('[data-equip="leaf-frame"]').textContent).toBe(
+        'Unequip',
+      ),
+    );
+  });
+
+  it('unequips the leaf frame and keeps it available to equip again', async () => {
+    const active = [
+      { id: 'leaf-frame', name: 'Leaf Frame', kind: 'frame', unlocked: true, equipped: true },
+    ];
+    const inactive = [{ ...active[0], equipped: false }];
+    getLeagueOverview.mockResolvedValue({ eligibility: 'ranked', rows: [], weeklyPoints: 0 });
+    getCosmetics.mockReset().mockResolvedValueOnce(active).mockResolvedValueOnce(inactive);
+    unequipCosmetic.mockResolvedValue({ id: 'leaf-frame', equipped: false });
+    const rendered = renderLeaderboardPage();
+
+    await rendered.afterRender();
+    const leafButton = rendered.element.querySelector('[data-equip="leaf-frame"]');
+    expect(leafButton.textContent).toBe('Unequip');
+    leafButton.click();
+
+    await vi.waitFor(() => expect(unequipCosmetic).toHaveBeenCalledWith('leaf-frame'));
+    await vi.waitFor(() =>
+      expect(rendered.element.querySelector('[data-equip="leaf-frame"]').textContent).toBe('Equip'),
     );
   });
 });

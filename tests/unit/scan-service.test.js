@@ -16,6 +16,7 @@ import {
   leaveDemoCrew,
   queueDemoLeague,
   submitDemoTask,
+  unequipDemoCosmetic,
 } from '../../src/features/ecocrew/scan-service.js';
 
 function imageFile() {
@@ -165,6 +166,19 @@ describe('demo action check-in rules', () => {
 
     expect(equipDemoCosmetic('leaf-frame')).toMatchObject({ id: 'leaf-frame', equipped: true });
     expect(getDemoProfile().frameId).toBe('leaf-frame');
+  });
+
+  it('removes the leaf frame without removing it from the collection', () => {
+    expect(unequipDemoCosmetic('leaf-frame')).toMatchObject({
+      id: 'leaf-frame',
+      unlocked: true,
+      equipped: false,
+    });
+    expect(getDemoProfile().frameId).toBeNull();
+    expect(getDemoCosmetics().find((item) => item.id === 'leaf-frame')).toMatchObject({
+      unlocked: true,
+      equipped: false,
+    });
   });
 
   it('keeps crew leave and league queue behavior role-aware in the mock adapter', () => {

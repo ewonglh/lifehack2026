@@ -18,4 +18,11 @@ describe('shared avatar frames', () => {
     expect(rendered).not.toContain('avatar-frame-wrap');
     expect(rendered).toContain('avatar-sm');
   });
+
+  it('renders the base avatar when no frame is selected', () => {
+    const rendered = avatar({ displayName: 'Irfan', frameId: null });
+
+    expect(rendered).not.toContain('avatar-frame-wrap');
+    expect(rendered).toContain('avatar-sm');
+  });
 });

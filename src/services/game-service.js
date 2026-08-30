@@ -359,6 +359,10 @@ export const gameService = {
     return invoke('manage-cosmetics', { action: 'equip', cosmeticId });
   },
 
+  async unequipCosmetic(cosmeticId) {
+    return invoke('manage-cosmetics', { action: 'unequip', cosmeticId });
+  },
+
   async syncContacts(provider, accessToken) {
     return invoke('manage-contacts', { action: 'sync', provider, accessToken });
   },

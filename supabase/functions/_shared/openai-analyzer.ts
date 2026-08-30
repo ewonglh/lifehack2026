@@ -7,6 +7,7 @@ import {
 type JsonObject = Record<string, unknown>;
 
 type OpenRouterResponse = {
+  model?: string;
   choices?: Array<{
     message?: {
       content?: unknown;
@@ -17,6 +18,101 @@ type OpenRouterResponse = {
     message?: unknown;
   };
 };
+
+const classificationSchema = {
+  type: 'object',
+  properties: {
+    itemName: {
+      type: 'string',
+      description: 'The household item identified in the image.',
+    },
+    material: {
+      type: ['string', 'null'],
+      description: 'The material identified, or null when it cannot be determined.',
+    },
+    recommendedBin: {
+      type: 'string',
+      enum: ['recycle', 'compost', 'reuse_return', 'landfill', 'unknown'],
+      description: 'The recommended disposal route.',
+    },
+    preparationTip: {
+      type: ['string', 'null'],
+      description: 'A preparation instruction, or null when none is needed.',
+    },
+    confidence: {
+      type: 'number',
+      minimum: 0,
+      maximum: 1,
+      description: 'Confidence in the item and disposal classification.',
+    },
+    localeRuleVersion: {
+      type: 'string',
+      description: 'The local recycling-rule version used for the classification.',
+    },
+    explanation: {
+      type: ['string', 'null'],
+      description: 'A concise explanation of the classification, or null when unavailable.',
+    },
+    taskPrompt: {
+      type: 'string',
+      description: 'The supplied daily-task prompt.',
+    },
+    promptSimilarity: {
+      type: 'number',
+      minimum: 0,
+      maximum: 1,
+      description: 'How closely the image matches the supplied task prompt.',
+    },
+    taskSatisfied: {
+      type: 'boolean',
+      description: 'Whether all required task conditions are visible.',
+    },
+    failureReason: {
+      type: ['string', 'null'],
+      enum: [
+        null,
+        'liquid_present',
+        'unrelated_item',
+        'recycling_context_missing',
+        'low_confidence',
+        'upload_failure',
+        'ai_failure',
+      ],
+      description: 'The task failure category, or null when the task is not failed.',
+    },
+    matchesTask: {
+      type: 'boolean',
+      description: 'Whether the image satisfies the complete daily task.',
+    },
+    taskConfidence: {
+      type: 'number',
+      minimum: 0,
+      maximum: 1,
+      description: 'Confidence in the task-match decision.',
+    },
+    taskReason: {
+      type: ['string', 'null'],
+      description: 'The reason for the task-match decision, or null when unavailable.',
+    },
+  },
+  required: [
+    'itemName',
+    'material',
+    'recommendedBin',
+    'preparationTip',
+    'confidence',
+    'localeRuleVersion',
+    'explanation',
+    'taskPrompt',
+    'promptSimilarity',
+    'taskSatisfied',
+    'failureReason',
+    'matchesTask',
+    'taskConfidence',
+    'taskReason',
+  ],
+  additionalProperties: false,
+} as const;
 
 function encodeBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -93,7 +189,7 @@ function buildTaskPrompt(input: PhotoInput): string {
     `Target material: ${input.task.targetMaterial ?? 'not specified'}`,
     `Target action: ${input.task.targetAction}`,
     `Additional validation metadata: ${JSON.stringify(input.task.validationMetadata ?? {})}`,
-    'Return a JSON object with exactly these fields: itemName, material, recommendedBin, preparationTip, confidence, localeRuleVersion, explanation, taskPrompt, promptSimilarity, taskSatisfied, failureReason, matchesTask, taskConfidence, taskReason.',
+    'Follow the supplied response schema exactly and return no Markdown or additional fields. Use null for optional string fields.',
     'Use null for optional string fields. recommendedBin must be one of recycle, compost, reuse_return, landfill, unknown. failureReason must be null or one of liquid_present, unrelated_item, recycling_context_missing, low_confidence, upload_failure, ai_failure.',
   ].join('. ');
 }
@@ -117,7 +213,8 @@ export async function analyzeWithOpenRouter(input: PhotoInput): Promise<Classifi
     method: 'POST',
     headers,
     body: JSON.stringify({
-      model: Deno.env.get('OPENROUTER_MODEL') ?? 'minimax/minimax-m3:free',
+      model: Deno.env.get('OPENROUTER_MODEL') ?? 'openrouter/free',
+      provider: { require_parameters: true },
       messages: [
         {
           role: 'system',
@@ -137,7 +234,14 @@ export async function analyzeWithOpenRouter(input: PhotoInput): Promise<Classifi
           ],
         },
       ],
-      response_format: { type: 'json_object' },
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'ecocrew_classification',
+          strict: true,
+          schema: classificationSchema,
+        },
+      },
       stream: false,
     }),
   });
@@ -149,5 +253,18 @@ export async function analyzeWithOpenRouter(input: PhotoInput): Promise<Classifi
 
   const payload = (await response.json()) as OpenRouterResponse;
   const content = extractAssistantText(payload);
-  return validateClassification(parseJsonContent(content));
+  try {
+    const result = validateClassification(parseJsonContent(content));
+    console.info('OpenRouter photo analysis completed.', {
+      requestedModel: Deno.env.get('OPENROUTER_MODEL') ?? 'openrouter/free',
+      selectedModel: payload.model ?? null,
+    });
+    return result;
+  } catch (error) {
+    const selectedModel = payload.model ?? 'unknown';
+    const reason = error instanceof Error ? error.message : 'validation error';
+    throw new Error(
+      `OpenRouter model ${selectedModel} returned an invalid classification: ${reason}`,
+    );
+  }
 }

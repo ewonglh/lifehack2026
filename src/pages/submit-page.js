@@ -13,12 +13,15 @@ function fixtureChoices() {
     demoFixtures
       .map(
         (fixture) =>
-          '<button class="btn ecocrew-btn-secondary" type="button" data-fixture="' +
+          '<button class="btn ecocrew-btn-secondary ecocrew-demo-fixture" type="button" data-fixture="' +
           escapeHtml(fixture.id) +
-          '"><span aria-hidden="true">' +
+          '" aria-pressed="false"><img class="ecocrew-demo-fixture__image" src="' +
+          escapeHtml(fixture.imageUrl) +
+          '" alt="" loading="lazy"><span class="ecocrew-demo-fixture__label">' +
           escapeHtml(fixture.icon) +
-          '</span> ' +
+          ' ' +
           escapeHtml(fixture.label) +
+          '</span>' +
           '</button>',
       )
       .join('') +
@@ -26,35 +29,11 @@ function fixtureChoices() {
   );
 }
 
-async function createFixtureFile(fixtureId) {
-  const labels = {
-    liquid_bottle: ['BOTTLE', 'VISIBLE WATER'],
-    empty_bottle: ['BOTTLE', 'EMPTY + RECYCLE'],
-    unrelated_item: ['SHOE', 'NOT TODAY’S ITEM'],
-  };
-  const [headline, subtitle] = labels[fixtureId] || labels.empty_bottle;
-  const svg =
-    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><rect width="800" height="600" fill="#dff1e4"/><rect x="40" y="40" width="720" height="520" rx="36" fill="#f8fff9" stroke="#173d36" stroke-width="8"/><circle cx="400" cy="250" r="115" fill="#d7f25a" stroke="#173d36" stroke-width="8"/><text x="400" y="235" text-anchor="middle" font-family="Arial" font-size="44" font-weight="700" fill="#173d36">' +
-    headline +
-    '</text><text x="400" y="290" text-anchor="middle" font-family="Arial" font-size="24" fill="#173d36">' +
-    subtitle +
-    '</text><text x="400" y="475" text-anchor="middle" font-family="Arial" font-size="22" fill="#536862">EcoCrew demo sample</text></svg>';
-  const image = new window.Image();
-  const url = window.URL.createObjectURL(new window.Blob([svg], { type: 'image/svg+xml' }));
-  const loaded = new Promise((resolve, reject) => {
-    image.onload = resolve;
-    image.onerror = reject;
-  });
-  image.src = url;
-  await loaded;
-  window.URL.revokeObjectURL(url);
-  const canvas = document.createElement('canvas');
-  canvas.width = 800;
-  canvas.height = 600;
-  canvas.getContext('2d').drawImage(image, 0, 0);
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-  if (!blob) throw new Error('Unable to prepare the demo sample.');
-  return new window.File([blob], fixtureId + '.png', { type: 'image/png' });
+async function createFixtureFile(fixture) {
+  const response = await window.fetch(fixture.imageUrl);
+  if (!response.ok) throw new Error('Unable to load that demo sample.');
+  const blob = await response.blob();
+  return new window.File([blob], fixture.fileName, { type: fixture.mimeType });
 }
 
 export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
@@ -90,6 +69,7 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
   let previewUrl = null;
   let selectedFile = null;
   let selectedFixture = null;
+  const fixtureButtons = [...page.querySelectorAll('[data-fixture]')];
 
   function setTaskAvailability(available) {
     page.querySelectorAll('[data-task-control]').forEach((control) => {
@@ -101,6 +81,11 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
   function showSelectedFile(file, fixture = null) {
     selectedFile = file;
     selectedFixture = fixture;
+    fixtureButtons.forEach((button) => {
+      const isSelected = fixture !== null && button.dataset.fixture === fixture;
+      button.classList.toggle('is-selected', isSelected);
+      button.setAttribute('aria-pressed', String(isSelected));
+    });
     if (previewUrl) window.URL.revokeObjectURL(previewUrl);
     previewUrl = window.URL.createObjectURL(file);
     preview.src = previewUrl;
@@ -139,6 +124,10 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
     ) {
       selectedFile = null;
       selectedFixture = null;
+      fixtureButtons.forEach((button) => {
+        button.classList.remove('is-selected');
+        button.setAttribute('aria-pressed', 'false');
+      });
       if (previewUrl) window.URL.revokeObjectURL(previewUrl);
       previewUrl = null;
       preview.removeAttribute('src');
@@ -159,7 +148,9 @@ export function renderSubmitPage({ navigate = defaultNavigate } = {}) {
       button.disabled = true;
       error.hidden = true;
       try {
-        const file = await createFixtureFile(button.dataset.fixture);
+        const fixture = demoFixtures.find((item) => item.id === button.dataset.fixture);
+        if (!fixture) throw new Error('Unable to prepare that demo sample.');
+        const file = await createFixtureFile(fixture);
         showSelectedFile(file, button.dataset.fixture);
       } catch (exception) {
         error.textContent = exception.message || 'We could not prepare that demo sample.';

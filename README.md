@@ -98,7 +98,7 @@ The mock flag is honored only by Vite development builds. On the sign-in page, c
 
 Add `http://localhost:3000/?auth_callback=1#/auth/callback` and the equivalent deployed URL to Supabase Auth’s allowed redirect URLs. For a judge-friendly hackathon flow, disable email confirmation/autoconfirm new accounts in the Supabase Auth settings. Never add a Supabase service-role key or an OpenRouter key to a `VITE_` variable.
 
-The Edge Functions require the Supabase service-role secret supplied by the hosted runtime. Set `OPENROUTER_API_KEY` only as an Edge Function secret when real analysis is desired; optionally set `OPENROUTER_MODEL` to select the vision model (default: `minimax/minimax-m3:free`). Otherwise set `MOCK_VLM=true` for the deterministic three-outcome demo. If live analysis is not configured or temporarily unavailable, the API returns an honest `ai_failure`/manual-retry result. Set `ALLOWED_ORIGIN` to the deployed site origin when the site is hosted.
+The Edge Functions require the Supabase service-role secret supplied by the hosted runtime. Set `OPENROUTER_API_KEY` only as an Edge Function secret when real analysis is desired; optionally set `OPENROUTER_MODEL` to select the vision model (default: `openrouter/free`, which selects an available free model with the requested image and structured-output capabilities). Otherwise set `MOCK_VLM=true` for the deterministic three-outcome demo. If live analysis is not configured or temporarily unavailable, the API returns an honest `ai_failure`/manual-retry result. Set `ALLOWED_ORIGIN` to the deployed site origin when the site is hosted.
 
 ## Routes
 | Hash route | Screen |

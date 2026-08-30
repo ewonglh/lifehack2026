@@ -23,6 +23,7 @@ import {
   submitDemoTask,
   confirmDemoAction,
   updateDemoProfile,
+  unequipDemoCosmetic,
   getDemoState,
 } from '../features/ecocrew/scan-service.js';
 
@@ -433,7 +434,10 @@ export const ecoCrewService = {
         kind,
         icon: kind === 'frame' ? '🌿' : kind === 'avatar' ? '🦊' : '🌱',
         unlocked: item.unlocked !== false,
-        equipped: Boolean(item.equipped),
+        equipped: Boolean(item.equipped || item.crewEquipped),
+        equippedScope:
+          item.equippedScope || (item.equipped ? 'personal' : item.crewEquipped ? 'crew' : null),
+        scopes: item.scopes,
         progress: item.progress,
       };
     });
@@ -442,6 +446,11 @@ export const ecoCrewService = {
   async equipCosmetic(cosmeticId) {
     if (useMockData) return equipDemoCosmetic(cosmeticId);
     return gameService.equipCosmetic(cosmeticId);
+  },
+
+  async unequipCosmetic(cosmeticId) {
+    if (useMockData) return unequipDemoCosmetic(cosmeticId);
+    return gameService.unequipCosmetic(cosmeticId);
   },
 
   async getPosts(userId) {

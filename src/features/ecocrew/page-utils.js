@@ -29,7 +29,7 @@ export function appShell(
     '</strong><p>' +
     escapeHtml(info) +
     '</p></div></details>' +
-    '<a class="ecocrew-avatar" href="#/profile" aria-label="Your profile">' +
+    '<a class="ecocrew-avatar" data-current-avatar href="#/profile" aria-label="Your profile">' +
     avatarInitial +
     avatarFrame +
     '</a>' +
@@ -41,6 +41,22 @@ export function appShell(
     '</h1></section>' +
     content;
   return page;
+}
+
+export function syncCurrentProfileAvatar(profile = {}) {
+  const displayName =
+    profile.displayName || profile.display_name || document.body.dataset.ecocrewDisplayName || 'I';
+  const frameId = profile.frameId ?? profile.frame_id ?? '';
+  const avatarInitial = String(displayName).trim().charAt(0).toUpperCase() || 'I';
+  const avatarFrame = getCosmeticAsset(frameId)
+    ? cosmeticVisual({ id: frameId }, 'ecocrew-avatar-frame')
+    : '';
+
+  document.body.dataset.ecocrewDisplayName = displayName;
+  document.body.dataset.ecocrewFrameId = frameId;
+  document.querySelectorAll('[data-current-avatar]').forEach((element) => {
+    element.innerHTML = escapeHtml(avatarInitial) + avatarFrame;
+  });
 }
 
 export function standaloneShell(

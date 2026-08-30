@@ -522,6 +522,21 @@ export function equipDemoCosmetic(cosmeticId) {
   return nextCosmetics.find((item) => item.id === cosmeticId) || null;
 }
 
+export function unequipDemoCosmetic(cosmeticId) {
+  const state = getDemoState();
+  const selected = state.cosmetics.find((item) => item.id === cosmeticId);
+  if (!selected || selected.unlocked === false) return null;
+  const nextCosmetics = state.cosmetics.map((item) =>
+    item.id === cosmeticId ? { ...item, equipped: false } : item,
+  );
+  const nextProfile = { ...state.profile };
+  if (selected.kind === 'frame' && nextProfile.frameId === selected.id) nextProfile.frameId = null;
+  if (selected.kind === 'avatar' && nextProfile.avatarId === selected.id)
+    nextProfile.avatarId = null;
+  save({ ...state, cosmetics: nextCosmetics, profile: nextProfile });
+  return nextCosmetics.find((item) => item.id === cosmeticId) || null;
+}
+
 export function getLeagueResetLabel() {
   return 'Resets Monday at 00:00 SGT.';
 }

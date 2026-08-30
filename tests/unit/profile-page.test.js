@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getProfileData = vi.hoisted(() => vi.fn());
 const equipCosmetic = vi.hoisted(() => vi.fn());
+const unequipCosmetic = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/services/ecocrew-service.js', () => ({
   ecoCrewService: {
     getProfileData,
     equipCosmetic,
+    unequipCosmetic,
     saveProfile: vi.fn(),
   },
 }));
@@ -45,6 +47,7 @@ describe('profile cosmetics and post history', () => {
   beforeEach(() => {
     getProfileData.mockReset().mockResolvedValue(profileData);
     equipCosmetic.mockReset().mockResolvedValue({ id: 'moss' });
+    unequipCosmetic.mockReset().mockResolvedValue({ id: 'leaf-frame', equipped: false });
   });
 
   it('renders escaped profile/post text and directly equips unlocked cosmetics', async () => {
@@ -99,6 +102,36 @@ describe('profile cosmetics and post history', () => {
       'false',
     );
     expect(rendered.element.querySelector('[data-edit]')).not.toBeNull();
+  });
+
+  it('removes an equipped frame while keeping it in the collection', async () => {
+    const removedData = {
+      ...profileData,
+      profile: { ...profileData.profile, frameId: null },
+      cosmetics: profileData.cosmetics.map((item) =>
+        item.id === 'leaf-frame' ? { ...item, equipped: false } : item,
+      ),
+    };
+    getProfileData
+      .mockReset()
+      .mockResolvedValueOnce(profileData)
+      .mockResolvedValueOnce(removedData);
+    const rendered = renderProfilePage({ sessionState: { session: { user: { id: 'user-1' } } } });
+    await rendered.afterRender();
+
+    const leafButton = rendered.element.querySelector('[data-equip-cosmetic="leaf-frame"]');
+    expect(leafButton.getAttribute('aria-label')).toContain('Unequip Leaf Frame');
+    leafButton.click();
+
+    await vi.waitFor(() => expect(unequipCosmetic).toHaveBeenCalledWith('leaf-frame'));
+    await vi.waitFor(() =>
+      expect(rendered.element.querySelector('.ecocrew-profile-frame')).toBeNull(),
+    );
+    expect(
+      rendered.element
+        .querySelector('[data-equip-cosmetic="leaf-frame"]')
+        .getAttribute('aria-label'),
+    ).toContain('Equip Leaf Frame');
   });
 
   it('replaces the profile loader with an accessible error', async () => {

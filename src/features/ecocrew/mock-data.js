@@ -1,3 +1,6 @@
+import bottleWithWaterImage from '../../assets/bottle-with-water.jpg';
+import personThrowsBottleImage from '../../assets/person-throws-plastic-bottle-into-green-recycling-bin-at-home-during-the-day-free-video.jpg';
+
 export const bins = [
   {
     id: 'recycle',
@@ -95,9 +98,22 @@ export const demoScans = {
 export const demoScan = demoScans.empty_bottle;
 
 export const demoFixtures = [
-  { id: 'liquid_bottle', label: 'Bottle with water', icon: '💧' },
-  { id: 'empty_bottle', label: 'Empty bottle', icon: '♻️' },
-  { id: 'unrelated_item', label: 'Unrelated item', icon: '👟' },
+  {
+    id: 'liquid_bottle',
+    label: 'Bottle with water',
+    icon: '💧',
+    imageUrl: bottleWithWaterImage,
+    fileName: 'bottle-with-water.jpg',
+    mimeType: 'image/jpeg',
+  },
+  {
+    id: 'empty_bottle',
+    label: 'Bottle in recycling bin',
+    icon: '♻️',
+    imageUrl: personThrowsBottleImage,
+    fileName: 'person-throws-plastic-bottle.jpg',
+    mimeType: 'image/jpeg',
+  },
 ];
 
 /* Kept as the canonical successful fixture for older pages. */
