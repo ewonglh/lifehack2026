@@ -1,195 +1,297 @@
 # EcoCrew
 
-EcoCrew is a mobile-first social recycling game. Players post a photo of a household item, choose the bin they think is correct, receive AI-assisted disposal guidance, and contribute points to a private crew, weekly mission, and shared streak.
+[![CI](https://github.com/ewonglh/lifehack2026/actions/workflows/ci.yml/badge.svg)](https://github.com/ewonglh/lifehack2026/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE.md)
+[![Node.js 22.12+](https://img.shields.io/badge/Node.js-22.12%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Vite 8](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-backend-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Live Demo](https://img.shields.io/badge/demo-live-2ea44f)](https://lifehack2026.onrender.com)
 
-The repository contains the mobile MVP with a real Supabase-backed account, profile, crew, daily task, submission, scoring, progress, rewards, and measurement flow. Mock mode remains available for local development and deterministic demo fixtures; it is not the production data source.
+EcoCrew is a mobile-first social recycling game that helps people build the habit of correctly preparing and recycling a single-use plastic bottle. A player completes a daily mission, captures or uploads a photo, receives AI-assisted preparation feedback, confirms the real-world action, and contributes progress to a private crew.
 
-## Current demo features
+The MVP supports a real Supabase-backed experience and a deterministic local demo mode. The photo validates preparation and recycling context; the final disposal action is self-reported, so the app does not claim that an image proves real-world disposal.
 
-- Responsive dashboard with daily post allowance, points, crew streak, mission progress, and cosmetic unlock progress.
-- Post flow with camera/file upload, image preview, four disposal choices, simulated analysis, and a result breakdown.
-- Email/password registration and login with Supabase sessions, display-name onboarding, and invite-link crew joining.
-- Editable profile with name, handle, age, About Myself text, lifetime points, cosmetics, and a list of completed posts.
-- Crew hub with Join and Create flows. The controls disappear after membership is saved, and a crew owner can delete their crew after confirmation.
-- Crew mission, activity feed, reactions, weekly league points that reset every Monday at midnight SGT, and cosmetic collection.
-- Crew invite dropdown with native mobile sharing, clipboard fallback, and X, Instagram, Telegram, and WhatsApp links.
-- Three deterministic Clean Bottle Check demo samples for liquid-present, empty, and unrelated-item outcomes.
-- Metadata-only baseline/follow-up measurement view labelled as demonstration data.
-- An Info control in the top-right corner of every page explains that screen’s purpose.
+Live demo: [lifehack2026.onrender.com](https://lifehack2026.onrender.com)
+
+## What is included
+
+- Daily **Clean Bottle Check** mission focused on emptying and recycling a single-use plastic bottle.
+- Camera or file upload with preview, retry, and clear success, mismatch, low-confidence, and failure states.
+- AI-assisted classification through a secure Supabase Edge Function, with three deterministic demo fixtures.
+- Email/password, magic-link, and OAuth authentication through Supabase, plus display-name onboarding.
+- Private crew creation and invite joining, shared missions, activity feed, reactions, streaks, and weekly league standings.
+- Personal points, profile history, cosmetic unlocks, and a metadata-only baseline/follow-up measurement view.
 - Keyboard-friendly controls, labelled bin choices, responsive layouts, and reduced-motion support.
 
 ## Technology
 
-- Vite 8
-- Native JavaScript ES modules
-- Bootstrap 5 and Bootstrap Icons
-- Sass and Stylelint
-- Hash-based client routing
-- Supabase project structure and Edge Function scaffolding
+- Vite `^8.2.2` and native JavaScript ES modules
+- Bootstrap `^5.3.8`, Bootstrap Icons, Sass, and Stylelint
+- Hash-based client-side routing
+- Supabase Auth, Postgres, Row Level Security, RPCs, and Edge Functions
+- OpenAI Responses API for optional live image analysis
+- Vitest, jsdom, ESLint, Prettier, and GitHub Actions
 
-## Prerequisites
+## Architecture
 
-- Node.js 22.12 or newer
+```text
+Browser
+├─ Vite app and hash router
+├─ Pages, layouts, components, and feature styles
+└─ Services
+   ├─ Mock adapter ── localStorage/sessionStorage (development demo)
+   └─ Supabase client
+      ├─ Auth
+      ├─ Postgres + RLS + trusted RPCs
+      └─ Edge Functions
+         └─ OpenAI Responses API (optional; secret stays server-side)
+```
+
+The user-facing term **crew** maps to `squad` in the current backend function and database names. Server responses are canonical for authentication, membership, task completion, points, streaks, missions, leagues, and unlocks; the browser only renders them.
+
+Task images are sent to `create-submission` as ephemeral multipart data. They are analyzed in memory and are not stored. Profile images, where enabled, use the private `avatars` bucket.
+
+## Getting started
+
+### Prerequisites
+
+- Node.js `22.12.0` or newer
 - npm 10 or newer
+- Docker Desktop or Podman only if you need the local Supabase stack
 
-Check the installed versions:
+Check your versions:
 
 ```shell
 node --version
 npm --version
 ```
 
-## Run locally
+### Run the frontend
 
-Run commands from the directory that contains this README and `package.json`:
+From the directory containing this README and `package.json`:
+
+```shell
+npm ci
+npm run dev
+```
+
+Open <http://localhost:3000/>. The development server uses a strict port and the root hash redirects to the appropriate landing or signed-in screen.
+
+On Windows PowerShell, use `npm.cmd` instead if the local execution policy blocks `npm.ps1`:
 
 ```powershell
-cd "C:\Users\Mohamed Irfan\Documents\Lifehack Sustainability\lifehack2026"
 npm.cmd ci
 npm.cmd run dev
 ```
 
-Open <http://localhost:3000/>. The root hash redirects to `#/auth`.
+### Choose an environment mode
 
-On PowerShell systems that allow npm scripts normally, `npm ci` and `npm run dev` also work. `npm.cmd` avoids a PowerShell execution-policy error caused by `npm.ps1` on some Windows installations.
+The frontend reads `.env.local`. Start from [.env.example](./.env.example).
 
-Running npm from the parent `Lifehack Sustainability` directory produces an `ENOENT` error because that directory has no `package.json`. Alternatively, start the app from the parent directory with:
+#### Local mock mode
 
-```powershell
-npm.cmd --prefix ".\lifehack2026" run dev
-```
+Mock mode is intended for development and demos. It uses browser storage and does not contact Supabase.
 
-## Configure Supabase
-
-The app can run in persistent local mock mode while the database schema is being developed. Mock mode uses browser localStorage and does not contact Supabase.
-
-With Docker Desktop or Podman running, reset the local Supabase database to the current migrations and seed fixture with:
-
-```powershell
-npm.cmd run db:reset
-```
-
-This is equivalent to `npx supabase db reset`; it discards local database changes and reruns `supabase/seed.sql`. It does not reset a linked remote project.
-
-To reset the linked remote project and reload the seed fixture, run:
-
-```powershell
-npm.cmd run db:reset:remote
-```
-
-This permanently deletes data in the linked remote database before replaying the local migrations and seed. Use it only for a disposable development or staging project, and verify the linked project before confirming the CLI prompt.
-
-To connect a Supabase project, copy `.env.example` to `.env.local`, set `VITE_USE_MOCK_DATA=false`, and add only browser-safe project values:
-
-```shell
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-publishable-anon-key
-```
-
-For schema-free local testing, use this instead in `.env.local`:
-
-```shell
+```text
 VITE_USE_MOCK_DATA=true
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
-The mock flag is honored only by Vite development builds. On the sign-in page, choose **Reset local demo data** to clear the dummy user, profile, and friends.
+During Vite development, missing Supabase credentials also fall back to mock mode. The production build requires valid Supabase credentials. On the sign-in screen, **Reset local demo data** clears the demo account and state.
 
-Add `http://localhost:3000/?auth_callback=1#/auth/callback` and the equivalent deployed URL to Supabase Auth’s allowed redirect URLs. For a judge-friendly hackathon flow, disable email confirmation/autoconfirm new accounts in the Supabase Auth settings. Never add a Supabase service-role key or an OpenRouter key to a `VITE_` variable.
+#### Supabase mode
 
-The Edge Functions require the Supabase service-role secret supplied by the hosted runtime. Set `OPENROUTER_API_KEY` only as an Edge Function secret when real analysis is desired; optionally set `OPENROUTER_MODEL` to select the vision model (default: `openrouter/free`, which selects an available free model with the requested image and structured-output capabilities). Otherwise set `MOCK_VLM=true` for the deterministic three-outcome demo. If live analysis is not configured or temporarily unavailable, the API returns an honest `ai_failure`/manual-retry result. Set `ALLOWED_ORIGIN` to the deployed site origin when the site is hosted.
+Copy the example file and set browser-safe project values:
 
-## Routes
-| Hash route | Screen |
-|---|---|
-| `#/` | Habit landing page; authenticated users go to Home |
-| `#/register` | Create-account demo |
-| `#/join/ECO123` | Seeded demo-crew invite flow |
-| `#/login` | Login demo |
-| `#/dashboard` | Today’s bottle action, personal progress, and crew progress |
-| `#/sort` | Today’s action photo flow; the path is retained temporarily for compatibility |
-| `#/result` | Preparation guidance, self-reported check-in, points, crew progress, and reward |
-| `#/crew` | Crew membership, mission, feed, reactions, and invitations |
-| `#/league` | Weekly cohort leaderboard and cosmetics |
-| `#/profile` | Editable profile and My Posts history |
-| `#/measurement` | Seeded baseline/follow-up behaviour measurement |
-
-Unknown routes display an in-app not-found state.
-
-## Demo data and persistence
-
-When mock mode is enabled, `src/features/ecocrew/scan-service.js` stores demo data under the `localStorage` key `ecocrew-demo-state`, including:
-
-- daily action count and daily points;
-- lifetime profile points, which do not reset;
-- weekly league points and the active Singapore week key;
-- mission progress, pending check-in, and the latest result;
-- profile edits;
-- profile post summaries;
-- crew membership and invite code;
-- activity reactions.
-
-Login/register actions set `ecocrew-demo-signed-in` in `sessionStorage`. In Supabase mode, authentication, crew membership, points, task completion, and progress are server-backed. Task photos are sent to the Edge Function as ephemeral multipart data and are not stored.
-
-To reset the demo and make Join/Create visible again, run this in the browser console and refresh:
-
-```js
-localStorage.removeItem('ecocrew-demo-state');
-sessionStorage.removeItem('ecocrew-demo-signed-in');
+```shell
+cp .env.example .env.local
 ```
 
-Do not treat browser-calculated points, membership, or profile data as trusted production state. Supabase RPCs and trusted Edge Functions are canonical.
+```text
+VITE_USE_MOCK_DATA=false
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-publishable-anon-key
+```
 
-## Project layout
+In PowerShell, the copy step is:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Add the following to Supabase Auth’s allowed redirect URLs, replacing the origin for a deployed environment:
+
+```text
+http://localhost:3000/?auth_callback=1#/auth/callback
+```
+
+For a judge-friendly demo, configure Supabase Auth to allow new accounts without email confirmation. Never put a service-role key or an AI provider key in a `VITE_` variable.
+
+### Run the local Supabase backend
+
+The local database requires Docker Desktop or Podman and the Supabase CLI:
+
+```shell
+npx supabase start
+npm run db:reset
+npx supabase test db
+```
+
+`npm run db:reset` applies all migrations and reloads [supabase/seed.sql](./supabase/seed.sql). It resets only the local database. The remote reset command is destructive and should be used only for a disposable linked project:
+
+```shell
+npm run db:reset:remote
+```
+
+To serve the Edge Functions locally, copy [supabase/.env.example](./supabase/.env.example) to `supabase/.env.local`, set the required values, and run:
+
+```shell
+npx supabase functions serve --env-file supabase/.env.local
+```
+
+### Configure live photo analysis
+
+The Edge Functions use the OpenAI Responses API. Set these values in `supabase/.env.local` or as hosted Edge Function secrets:
+
+```text
+OPENAI_API_KEY=your-server-side-key
+OPENAI_MODEL=gpt-4o-mini
+MOCK_VLM=true
+ALLOWED_ORIGIN=http://localhost:3000
+```
+
+Set `MOCK_VLM=true` for the deterministic demo fixtures. Set it to `false` and provide `OPENAI_API_KEY` for live analysis. If the live model is unavailable, the API returns an explicit `ai_failure` result with retry/manual-guidance messaging.
+
+Keep `OPENAI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, contact-provider secrets, and provider access tokens out of the browser bundle and all `VITE_` variables.
+
+## The daily flow
+
+1. Sign in and set a display name.
+2. Join or create a crew, or continue with individual progress.
+3. Open **Today’s action** and read the Clean Bottle Check instruction.
+4. Capture or upload the prepared bottle and submit the photo.
+5. Review the preparation/context result. A successful photo returns `awaiting_check_in` with zero points.
+6. Confirm **I recycled it**. The trusted backend awards points and updates personal and crew progress idempotently.
+7. View the result, reward, streak, teammate activity, and next unlock.
+
+### Demo fixtures
+
+When `MOCK_VLM=true`, the Scan screen exposes deterministic examples:
+
+| Fixture | Result | Expected behavior |
+|---|---|---|
+| Bottle with water | `liquid_present` | Explain “Empty the bottle first,” award no points, and offer retry. |
+| Empty bottle | Success | Show recycle guidance; confirmation normally awards 25 points on a fresh demo and updates progress. |
+| Unrelated item | `unrelated_item` | Explain that the item does not match today’s mission, award no points, and offer retry. |
+
+The seeded demo crew uses invite code `ECO123`. Reset the local demo before replaying a successful action because one daily action is intentionally enforced.
+
+## Routes
+
+All routes use the hash portion of the URL, for example `#/dashboard`.
+
+| Route | Screen or behavior |
+|---|---|
+| `#/` | Public habit landing page; signed-in users continue to onboarding or Home. |
+| `#/auth` / `#/login` | Sign-in screen. |
+| `#/register` | Account creation. |
+| `#/join/:inviteCode` | Public crew invite flow. |
+| `#/auth/callback` | Supabase Auth callback handler. |
+| `#/onboarding` | Display-name setup. |
+| `#/dashboard` | Home, today’s action, personal progress, and crew progress. |
+| `#/dashboard/variants` | Dashboard design-review variants. |
+| `#/sort` | Today’s action/photo flow; retained for compatibility. |
+| `#/result` / `#/result/:submissionId` | Preparation result, check-in, score, and reward. |
+| `#/crew` | Membership, mission, activity, reactions, and invites. |
+| `#/friends` | Redirects to the crew hub. |
+| `#/league` | Weekly standings and cosmetics. |
+| `#/profile` | Editable profile and completed-action history. |
+| `#/settings` | Account and application settings. |
+| `#/measurement` | Seeded baseline/follow-up behavior measurement. |
+
+Unknown routes render an in-app not-found state.
+
+## Backend flow
+
+The main authenticated photo path is:
+
+1. `manage-mission` returns the stable task for the user’s local day.
+2. `create-submission` accepts multipart `image`, `taskId`, `idempotencyKey`, and optional `locale`.
+3. The Edge Function validates the image and task, analyzes the photo, records metadata, and returns `awaiting_check_in`, `failed`, or `unknown`.
+4. `confirm-action` accepts the submission ID and records the self-reported recycling action. This is the only step that awards action, preparation, daily, streak, or crew progress.
+5. The frontend renders the returned score breakdown and unlock data without recalculating them.
+
+Additional Edge Functions support crew management, missions, profiles, activity, cosmetics, leagues, contacts, and weekly league jobs. See [supabase/README.md](./supabase/README.md) for function payloads and deployment commands.
+
+## Project structure
 
 ```text
 src/
-  app/                     Hash router and route registry
-  features/ecocrew/        Mock fixtures, state adapter, routes, and page utilities
-  layouts/                 Signed-in application navigation
-  pages/                   Auth, dashboard, post, result, crew, league, and profile screens
-  styles/                  Bootstrap setup and scoped EcoCrew feature styles
+  app/                    Router, route registry, session guards, and errors
+  assets/                 Product images used by the frontend
+  components/             Shared UI components
+  config/                 Environment resolution
+  features/ecocrew/       EcoCrew routes, mock data, state, and page utilities
+  layouts/                Public and signed-in layouts
+  lib/                    DOM and Supabase helpers
+  pages/                  Auth, dashboard, action, result, crew, league, and profile screens
+  services/               Auth, game, profile, crew, and mock adapters
+  styles/                 Bootstrap setup, tokens, overrides, and feature Sass
+public/assets/            Static asset placeholders
 supabase/
-  functions/               Edge Function and shared analysis scaffolding
-  migrations/              Canonical database changes when added by the backend owner
-  public/assets/              Static images and icons
-tests/                      Unit, integration, and browser tests when added
+  functions/               Edge Functions and shared TypeScript modules
+  migrations/              Canonical database migrations
+  tests/database/          SQL/RLS tests
+  seed.sql                 Local and demo fixture data
+tests/unit/                 Frontend unit tests
+.github/workflows/ci.yml   Push and pull-request quality gate
 ```
-
-The application uses hash routes, so static hosts do not need server-side SPA rewrite rules. The root route `#/` renders the habit landing page for anonymous users; authenticated users continue to onboarding or the dashboard. Core frontend routes are `#/`, `#/auth`, `#/auth/callback`, `#/onboarding`, `#/dashboard`, `#/sort`, `#/result`, `#/friends`, `#/profile`, and `#/settings`.
-
-Bootstrap JavaScript plugins should be imported only by the component that uses them; do not add jQuery or a global Bootstrap bundle.
-The user-facing term is **Today’s action**. Internal names such as `submit-page`, `scan-service`, `scan_event`, and the `#/sort` route remain temporarily for compatibility. The photo validates preparation and recycling context; the user’s check-in records the action honestly.
 
 ## Validate changes
 
-```powershell
-npm.cmd run build
+The frontend quality gate is:
+
+```shell
+npm test
 ```
 
-The production Vite build is the deployment handoff check. Other commands are:
+It runs formatting checks, ESLint, Stylelint, Vitest, and the production Vite build. Individual commands are:
 
 | Command | Purpose |
 |---|---|
-| `npm.cmd run dev` | Start Vite on port 3000 |
-| `npm.cmd run build` | Create an optimized build in `dist/` |
-| `npm.cmd run preview` | Serve `dist/` on port 4173 |
-| `npm.cmd run lint:styles` | Lint all Sass files |
-| `npm.cmd test` | Run style linting and the production build |
+| `npm run dev` | Start Vite on port 3000. |
+| `npm run build` | Create the production build in `dist/`. |
+| `npm run preview` | Preview `dist/` on port 4173. |
+| `npm run format:check` | Check JavaScript formatting. |
+| `npm run lint:js` | Run ESLint. |
+| `npm run lint:styles` | Run Stylelint on Sass. |
+| `npm run test:unit` | Run Vitest unit tests. |
+| `npx supabase test db` | Run Supabase SQL/RLS tests. |
 
-## Integration rules
+## Security and product boundaries
 
-- VLM credentials must stay in a Supabase Edge Function; never expose them in client JavaScript or `VITE_*` variables.
-- Item photos remain private by default. A profile post currently exposes only a disposal summary, not the image.
-- The backend owns canonical points, daily limits, membership, streaks, missions, and unlocks.
-- Keep mock responses aligned with the Supabase result contract in [CONTRACTS.md](./CONTRACTS.md).
-- See [DEVPLAN.md](./DEVPLAN.md) for product priorities, ownership, milestones, and remaining work.
+- The browser never decides final points, streaks, membership, permissions, or unlocks.
+- All sensitive mutations and model calls stay behind Supabase RPCs or Edge Functions.
+- Item photos are private and ephemeral; profile photos use private avatar storage.
+- The VLM is advisory and may return `unknown` or `ai_failure`; uncertainty must remain visible to the player.
+- Analytics and activity data should not contain raw images, prompts, contact lists, or sensitive profile text.
+- The initial ruleset is a single locale, `en-SG`; disposal guidance may differ in other jurisdictions.
 
-## Team ownership
+See [CONTRACTS.md](./CONTRACTS.md) for the shared privacy, scoring, API, and ownership rules.
 
-- **Person 1 - Backend:** Supabase schema/RLS/Storage, Edge Functions, VLM adapter, scoring, quotas, missions, streaks, and backend tests.
-- **Person 2 - Frontend platform:** application bootstrap, shared router/layouts/components/styles, authentication integration, settings, and global accessibility/session behavior.
-- **Person 3 (Irfan) - Product pages:** dashboard, Create Post flow, result, crew, activity, invitations, league, cosmetics, profile pages, feature-specific styling, and end-to-end user journeys.
+## Contributing
 
-Coordinate changes to shared routing, global Sass, and API shapes with the relevant owners before merging.
+Before opening a pull request:
+
+1. Keep frontend mock responses aligned with the shared result contracts.
+2. Preserve the daily loop and its success, retry, low-confidence, and failure states.
+3. Add or update tests for behavior changes.
+4. Run `npm test` and, when backend behavior changes, `npx supabase test db`.
+5. Do not commit `.env.local`, API keys, service-role keys, or other secrets.
+
+Coordinate changes to shared routing, global Sass, database contracts, and Edge Function payloads with the relevant owners. Product scope and priorities are documented in [DEVPLAN.md](./DEVPLAN.md); the judge walkthrough is in [DEMO_PLAN.md](./DEMO_PLAN.md).
+
+## License
+
+See [LICENSE.md](./LICENSE.md) for the repository’s current license text.
